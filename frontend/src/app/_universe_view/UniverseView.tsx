@@ -52,11 +52,7 @@ function Earth({
   earthRef: React.RefObject<THREE.Object3D>;
 }) {
   const texture = useLoader(TextureLoader, "/planet_texture/_earth.jpg");
-  const rawCloudTexture = useLoader(
-    TextureLoader,
-    "/planet_texture/_cloud.jpg"
-  );
-  const cloudTexture = useLoader(TextureLoader, "/planet_texture/_cloud.jpg");
+  const cloudTexture = useLoader(TextureLoader, "/planet_texture/_clouds.jpg");
   // const cloudTexture = useMemo(
   //   () => invertTexture(rawCloudTexture),
   //   [rawCloudTexture]
@@ -80,7 +76,7 @@ function Earth({
           depthWrite={false}
         />
       </mesh>
-      {/* <mesh rotation={[Math.PI / 2, earth.rotation + defaultRotationY, 0]}>
+      <mesh rotation={[Math.PI / 2, earth.rotation + defaultRotationY, 0]}>
         <sphereGeometry args={[EARTH_DISPLAY_RADIUS_P * 1.02, 64, 64]} />
         <meshPhongMaterial
           color={0xffffff}
@@ -89,7 +85,7 @@ function Earth({
           opacity={0.8}
           depthWrite={false}
         />
-      </mesh> */}
+      </mesh>
       <mesh
         ref={earthRef}
         rotation={[Math.PI / 2, earth.rotation + defaultRotationY, 0]}
@@ -136,7 +132,7 @@ function Satellites({
   return (
     <>
       {satellites.map((sat) => {
-        const color = sat.onSun? "green" : "red";
+        const color = sat.onSun ? "green" : "red";
         // 新增：使用dimensions设置卫星大小（假设单位m，缩放以匹配场景）
         const pjColor = "white"; // 假设图像颜色为白色
         const imgColor = "yellow"; // 假设图像颜色为黄色
@@ -493,3 +489,7 @@ export default function UniverseView() {
     </div>
   );
 }
+function createLongitudeLine(arg0: any, lon: number, arg2: number, arg3: number, arg4: number): THREE.Object3D<THREE.Object3DEventMap> {
+  throw new Error("Function not implemented.");
+}
+

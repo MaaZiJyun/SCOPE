@@ -61,6 +61,32 @@ function Earth({
     }
   });
 
+  // 经纬线组
+  const gridGroup = useMemo(() => {
+    const group = new THREE.Group();
+    group.name = "LatLonIndicator";
+
+    const radius = EARTH_DISPLAY_RADIUS_P + 10; // slightly above surface
+    const segments = 256;
+
+    // 纬线（Latitude circles）
+    for (let lat = -90; lat <= 90; lat += 10) {
+      const isEquator = lat === 0;
+      const color = isEquator ? 0xffffff : 0x2b2b2b;
+      const width = isEquator ? 2 : 1;
+      const line = createLatitudeLine(radius, lat, segments, color, width);
+      group.add(line);
+    }
+
+    // 经线（Longitude meridians）
+    for (let lon = -180; lon <= 180; lon += 10) {
+      const line = createLongitudeLine(radius, lon, segments, 0x2b2b2b, 1);
+      group.add(line);
+    }
+
+    return group;
+  }, []);
+
   return (
     <group>
       <mesh rotation={[Math.PI / 2, earth.rotation + defaultRotationY, 0]}>
@@ -72,6 +98,11 @@ function Earth({
           depthWrite={false}
         />
       </mesh>
+      {/* 经纬线与地球同轴、同自转 */}
+      <primitive
+        object={gridGroup}
+        rotation={[Math.PI / 2, earth.rotation + defaultRotationY, 0]}
+      />
       <mesh
         ref={earthRef}
         rotation={[Math.PI / 2, earth.rotation + defaultRotationY, 0]}
@@ -486,7 +517,7 @@ function UniverseScene({
 
   return (
     <Canvas
-    shadows
+      shadows
       camera={{ position: [0, 0, 20000], fov: 30, near: 1000, far: 50000 }}
       onCreated={({ gl }) => {
         gl.setClearColor("#ffffff"); // 背景白色
@@ -566,4 +597,60 @@ export default function ObjectView() {
       )}
     </div>
   );
+}
+// Helpers to build latitude/longitude lines on a sphere
+function createLatitudeLine(
+  radius: number,
+  latitudeDeg: number,
+  segments: number,
+  color: number | string,
+  _linewidth: number
+): THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial> {
+  const latRad = THREE.MathUtils.degToRad(latitudeDeg);
+  const cosLat = Math.cos(latRad);
+  const sinLat = Math.sin(latRad);
+  const points: THREE.Vector3[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const lon = (i / segments) * Math.PI * 2;
+    const x = radius * cosLat * Math.cos(lon);
+    const y = radius * sinLat;
+    const z = radius * cosLat * Math.sin(lon);
+    points.push(new THREE.Vector3(x, y, z));
+  }
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.4,
+  });
+  return new THREE.Line(geometry, material);
+}
+
+function createLongitudeLine(
+  radius: number,
+  longitudeDeg: number,
+  segments: number,
+  color: number | string,
+  _linewidth: number
+): THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial> {
+  const lonRad = THREE.MathUtils.degToRad(longitudeDeg);
+  // Meridian lies on a plane rotated by longitude around Y-axis
+  const points: THREE.Vector3[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = (i / segments) * Math.PI * 2; // angle from south to north pole and back
+    // Build great-circle in XZ -> rotate around Y to desired longitude
+    const x = radius * Math.cos(t);
+    const y = radius * Math.sin(t);
+    const z = 0;
+    const p = new THREE.Vector3(x, y, z);
+    p.applyAxisAngle(new THREE.Vector3(0, 1, 0), lonRad);
+    points.push(p);
+  }
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.4,
+  });
+  return new THREE.Line(geometry, material);
 }

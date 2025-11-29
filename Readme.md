@@ -1,4 +1,6 @@
-# ConstellationSimulation
+# S.C.O.P.E.
+
+Satellite-ground Collaborative Observation Performance Evaluator, Light and easy visualization for LEO satellite experiments.
 
 Lightweight satellite constellation simulator and visualizer:
 - Backend: FastAPI simulation core (satellite dynamics, footprints, network/links, services).
@@ -11,6 +13,12 @@ Lightweight satellite constellation simulator and visualizer:
 - Node.js 16+ / npm or yarn
 
 ## Quick start (development)
+
+### some big files needed to be downloaded at first
+
+Those images under dirctory `/frontend/public/planet_texture/` with big sizes has been put in the google drive:
+https://drive.google.com/drive/folders/1hnm2OJi4xMqYI2_2qalkP7uyBbpCmDb1?usp=sharing,
+click the link to download before run the simulator.
 
 ### Backend
 1. Open a terminal in the backend folder and create a venv:
