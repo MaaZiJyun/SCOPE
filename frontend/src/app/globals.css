@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.bg-gray-00 { background-color: #e0e0e0; }
+.bg-gray-01 { background-color: #c2c2c2; }
+.bg-gray-02 { background-color: #a6a6a6; }
+.bg-gray-03 { background-color: #8a8a8a; }
+.bg-gray-04 { background-color: #6e6e6e; }
+.bg-gray-05 { background-color: #525252; }
+.bg-gray-06 { background-color: #383838; }
+.bg-gray-07 { background-color: #2a2a2a; }
+.bg-gray-08 { background-color: #101010; }
+.bg-gray-09 { background-color: #080808; }
+
+.text-gray-00 { color: #e0e0e0; }
+.text-gray-01 { color: #c2c2c2; }
+.text-gray-02 { color: #a6a6a6; }
+.text-gray-03 { color: #8a8a8a; }
+.text-gray-04 { color: #6e6e6e; }
+.text-gray-05 { color: #525252; }
+.text-gray-06 { color: #363636; }
+.text-gray-07 { color: #1a1a1a; }
+.text-gray-08 { color: #000000; }

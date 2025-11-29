@@ -1,0 +1,5 @@
+PROJECT_PREFIX = "/api/project"
+PREDICT_PREFIX = "/api/predict"
+SIMULATION_PREFIX = "/api/simulation"
+REALTIME_PREFIX = "/api/realtime"
+CACHE_PREFIX = "/api/cache"

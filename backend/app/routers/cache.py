@@ -1,0 +1,54 @@
+import multiprocessing
+from app.core.simulation import Simulation
+from app.env.train_and_run import train_model
+from routers.prefix import CACHE_PREFIX
+from fastapi import APIRouter, HTTPException
+from app.models.api_dict.pj import ProjectDict
+from app.models.api_dict.basic import ApiResponse
+from services.cache_service import (
+    check_all_cache_integrity,
+    clear_cache_folder,
+    get_cache_folder_size,
+    initial_cache_setup,
+)
+
+router = APIRouter(prefix=CACHE_PREFIX, tags=["cache"])
+
+@router.get("/size", response_model=ApiResponse[int])
+async def get_cache_size():
+    size = get_cache_folder_size()
+    return ApiResponse(status="success", data=size)
+
+@router.post("/clear", response_model=ApiResponse[str])
+async def clear_cache():
+    clear_cache_folder()
+    return ApiResponse(status="success", data="cache cleared")
+
+@router.post("/check_integrity", response_model=ApiResponse[dict])
+async def check_cache_integrity(input: ProjectDict):
+    try:
+        result = check_all_cache_integrity(input.id, input.constellation.id)
+        return ApiResponse(status="success", data=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/initial", response_model=ApiResponse[str])
+async def initial_cache(input: ProjectDict):
+    initial_cache_setup(input)
+    return ApiResponse(status="success", data="cache initialized")
+
+@router.post("/train", response_model=ApiResponse[str])
+async def train_model_route(input: ProjectDict):
+    try:
+        p = multiprocessing.Process(target=train_model, args=(input,))
+        p.daemon = False
+        p.start()
+        return ApiResponse(status="success", data=f"cache initialized, training started (pid={p.pid})")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"failed to start training process: {e}")
+
+@router.post("/run_model", response_model=ApiResponse[str])
+async def run_model_route(input: ProjectDict):
+    # initial_cache_setup(input)
+    # train_model(input)
+    return ApiResponse(status="success", data="model run")

@@ -1,0 +1,50 @@
+# Python
+*.pyc
+__pycache__/
+*.ipynb
+
+# Data & Output
+SIM/
+output/
+analysis/
+de421.bsp
+data/others/
+*.csv
+pg-cosim/
+old/
+
+# Backend
+backend/venv/
+backend/cache/
+backend/projects/
+backend/ai_model/
+backend/app/*.pkl
+
+# Node/Frontend
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/.pnp
+frontend/.pnp.*
+frontend/.yarn/*
+!frontend/.yarn/patches
+!frontend/.yarn/plugins
+!frontend/.yarn/releases
+!frontend/.yarn/versions
+frontend/coverage/
+frontend/out/
+frontend/build/
+frontend/.DS_Store
+frontend/*.pem
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+frontend/.env*
+frontend/.vercel
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+
+# Misc
+.DS_Store
+*.pem.DS_Store

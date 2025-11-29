@@ -1,0 +1,19 @@
+from pydantic import BaseModel
+
+class TransReq(BaseModel):
+    task_id: int
+    src: tuple[int, int]
+    dst: tuple[int, int]
+    target_file_size: float
+    data_sent: float = 0.0
+    step: int = 0
+
+class CompReq(BaseModel):
+    task_id: int
+    node_id: tuple[int, int]
+    layer_id: int
+    target_workload: int
+    workload_done : int = 0.0
+    step: int = 0
+    
+    

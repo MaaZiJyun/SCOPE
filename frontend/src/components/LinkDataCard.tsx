@@ -1,0 +1,51 @@
+import { LinkFrame } from "@/types/simulation";
+import React from "react";
+
+interface LinkDataCardProps {
+  link: LinkFrame;
+}
+
+const LinkDataCard: React.FC<LinkDataCardProps> = ({ link }) => {
+  return (
+    <div className="w-full rounded-lg p-2 shadow border border-white/10 mb-2">
+      <div className="flex justify-between mb-1">
+        <span
+          className={`text-xs px-4 rounded-xl
+      ${
+        link.type === "ISL"
+          ? "border border-purple-600 text-purple-600 bg-purple-800/20"
+          : "border border-yellow-600 text-yellow-600 bg-yellow-800/20"
+      }`}
+        >
+          {link.type}
+        </span>
+        <span className="text-xs text-white/60">
+          From <span className="text-white">{link.src.slice(-6)}</span> To{" "}
+          <span className="text-white">{link.dst.slice(-6)}</span>
+        </span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-xs text-white/60">Distance</span>
+        <span className="text-xs text-white">
+          {(link.distance / 1000).toFixed(2)} KM
+        </span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-xs text-white/60">SNR</span>
+        <span className="text-xs text-white">{link.snr.toFixed(2)} dB</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-xs text-white/60">Rate</span>
+        <span className="text-xs text-white">
+          {link.rate >= 1e9
+            ? `${(link.rate / 1e9).toFixed(2)} Gbps`
+            : link.rate >= 1e6
+            ? `${(link.rate / 1e6).toFixed(2)} Mbps`
+            : `${link.rate.toFixed(2)} bps`}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+export default LinkDataCard;
