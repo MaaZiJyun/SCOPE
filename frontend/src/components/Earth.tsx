@@ -6,7 +6,7 @@ import * as THREE from "three";
 // 只能在 Canvas 内部调用 hooks
 function EarthModel() {
   const mesh = useRef<THREE.Mesh>(null);
-  const texture = useTexture("/planet_texture/earth.jpg");
+  const texture = useTexture("/planet_texture/earth_texture.jpg");
 
   useFrame(() => {
     if (mesh.current) {

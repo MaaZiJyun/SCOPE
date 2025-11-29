@@ -92,7 +92,7 @@ export async function createEarth(
         const loader = new THREE.TextureLoader();
         const texture: THREE.Texture = await new Promise((resolve, reject) => {
             loader.load(
-                "/planet_texture/earth.jpg",
+                "/planet_texture/earth_texture.jpg",
                 resolve,
                 undefined,
                 reject

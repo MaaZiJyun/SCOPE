@@ -20,6 +20,15 @@ Those images under dirctory `/frontend/public/planet_texture/` with big sizes ha
 https://drive.google.com/drive/folders/1hnm2OJi4xMqYI2_2qalkP7uyBbpCmDb1?usp=sharing,
 click the link to download before run the simulator.
 
+```bash
+public
+│   └── planet_texture
+│       ├── clouds_texture_hd.jpg
+│       ├── earth_texture_hd.jpg
+│       ├── earth_obj_texture.png
+│       └── earth_texture.jpg
+```
+
 ### Backend
 1. Open a terminal in the backend folder and create a venv:
 ```bash

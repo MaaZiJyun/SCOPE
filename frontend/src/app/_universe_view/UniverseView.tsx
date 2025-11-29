@@ -51,8 +51,8 @@ function Earth({
   earth: EarthFrame;
   earthRef: React.RefObject<THREE.Object3D>;
 }) {
-  const texture = useLoader(TextureLoader, "/planet_texture/_earth.jpg");
-  const cloudTexture = useLoader(TextureLoader, "/planet_texture/_clouds.jpg");
+  const texture = useLoader(TextureLoader, "/planet_texture/earth_texture_hd.jpg");
+  const cloudTexture = useLoader(TextureLoader, "/planet_texture/clouds_texture_hd.jpg");
   // const cloudTexture = useMemo(
   //   () => invertTexture(rawCloudTexture),
   //   [rawCloudTexture]
