@@ -12,7 +12,7 @@ from app.env.core.entity_col import EntityCol
 from app.env.core.task_manager import TaskManager
 # from app.env.vars.visualizer import render_satellite_network
 from app.env.vars.request import CompReq, TransReq
-from app.env.core.formulation import compute_aim_reward, compute_delay_penalty, compute_energy_penalty, settle_reward
+from app.env.core.formulation import compute_delay_penalty, compute_energy_penalty, settle_reward
 from app.env.core.operation import do_computing, do_energy_updating, do_transferring
 from app.env.core.observation import get_obs
 # from app.env.snapshot.info import Info
@@ -330,6 +330,7 @@ class LEOEnv(gym.Env):
             action_reward += ALL_TASK_COMPLETION_REWARD
             terminated = True
             terminated_reason = "all_tasks_completed"
+            
         elif any_satellite_depleted(nodes):
             action_reward += ENERGY_DROWN_PENALTY
             terminated = True
@@ -339,6 +340,7 @@ class LEOEnv(gym.Env):
             action_reward += OVERTIME_PENALTY
             truncated = True
             truncated_reason = "all_tasks_overtimed"
+            
         # elif any_illegal_link(self.SM, self.DM):
         #     action_reward += WRONG_EDGE_PENALTY
         #     truncated = True

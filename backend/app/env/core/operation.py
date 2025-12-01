@@ -108,26 +108,26 @@ def do_transferring(
         bandwidth_ratio = target_data_to_send / sum_of_data if sum_of_data > 0 else 0
 
         # 计算每步可传输的数据量
-        data_per_step = comm_capacity * T_STEP * bandwidth_ratio
+        data_this_step = comm_capacity * T_STEP * bandwidth_ratio
 
         # Debug prints to help diagnose zero-transfer issues (kept minimal)
         if DEBUG:
             users_count = sum(1 for k in all_keys if users_uv.get(k, False) or users_vu.get(k, False))
             print(
                 f"[trans] t={t} task={m} layer={n} src={src} dst={dst} comm={comm_capacity:.3f} "
-                f"users={users_count} sum_of_data={sum_of_data:.3f} bw_ratio={bandwidth_ratio:.6f} data_step={data_per_step:.6f}"
+                f"users={users_count} sum_of_data={sum_of_data:.3f} bw_ratio={bandwidth_ratio:.6f} data_step={data_this_step:.6f}"
             )
             if sum_of_data == 0 and len(target_list) > 0:
                 print(f"[trans] detailed targets for users: {target_list}")
 
         # 更新传输进度
-        req.data_sent += data_per_step
-        sm.write_size(m=m, n=n, value=data_per_step)
+        req.data_sent += data_this_step
+        sm.write_size(m=m, n=n, value=data_this_step)
         # 同步 Task.data_sent 使用 StateManager 的累计值作为单一信源，
         # 避免本地计数器与 state buffer 发生漂移。
         # sent_data = sm.sum_size_before(m=m, n=n, T=t)
         # task.data_sent = float(sent_data)
-        task.data_sent += data_per_step
+        task.data_sent += data_this_step
         task.data_percent = task.data_sent / LAYER_OUTPUT_DATA_SIZE[task.layer_id]
 
         # 检查是否完成传输
