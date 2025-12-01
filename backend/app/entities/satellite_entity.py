@@ -75,7 +75,7 @@ class SatelliteEntity():
         
         # === 电池与能源 ===
         self.battery: float = BATTERY_MAX     # 当前电池电量
-        self.battery_percent: float = 100.0    # 当前电池电量百分比
+        self.battery_ratio: float = 1.0    # 当前电池电量百分比
 
         # === 通信模块 ===
         self.connections: dict[str, LinkSnapshot] = {}  # 当前连接的链路信息
@@ -105,18 +105,18 @@ class SatelliteEntity():
             mu_t=1 if self.is_charging else 0
         )
         self.battery = min(self.battery + gain, BATTERY_MAX)
-        self.battery_percent = (self.battery / BATTERY_MAX) * 100.0
+        self.battery_ratio = (self.battery / BATTERY_MAX)
         
     def discharge_static(self, dt: float) -> None:
         cost = dt * STATIC_ENERGY_COST
         self.battery = max(self.battery + cost, 0)
-        self.battery_percent = (self.battery / BATTERY_MAX) * 100.0
+        self.battery_ratio = (self.battery / BATTERY_MAX)
         # print(f"dt {dt} Static discharge for satellite {self.id}: cost={cost:.2f}, battery={self.battery:.2f}, percent={self.battery_percent:.2f}%")
 
     def discharge_dynamic(self, dt: float) -> None:
         cost = dt * (self.is_communicating_isl * TRANSMIT_ENERGY_COST + self.is_processing * COMPUTE_ENERGY_COST)
         self.battery = max(self.battery + cost, 0)
-        self.battery_percent = (self.battery / BATTERY_MAX) * 100.0
+        self.battery_ratio = (self.battery / BATTERY_MAX)
 
     def _at(self, period_counter: int, slot_counter: int) -> None:
         # 更新位置
@@ -169,7 +169,7 @@ class SatelliteEntity():
             imgCornersPos=self.img_corners_pos,
             imgCornersLon= self.img_corners_loc,
             # Energy
-            batteryPercent=self.battery_percent,
+            batteryPercent=self.battery_ratio * 100,
             # indicators
             onROI=self.is_observing,
             onSGL=self.is_communicating_sgl,

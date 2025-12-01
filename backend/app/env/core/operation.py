@@ -139,4 +139,4 @@ def do_transferring(
 def do_energy_updating(slot: float, nodes: List[SatelliteEntity], sm: StateManager):
     for n in nodes:
         n.energy_step(dt=slot)
-        sm.write_energy(n.plane, n.order, n.battery_percent)
+        sm.write_energy(n.plane, n.order, n.battery_ratio)

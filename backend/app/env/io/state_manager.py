@@ -42,7 +42,7 @@ class StateManager:
     def setup(self, all_nodes: List[SatelliteEntity], all_edges: List[LinkSnapshot], all_tasks: List[Task]):
         for n in all_nodes:
             pp, oo = int(n.plane), int(n.order)
-            self.energy[(pp, oo)] = float(n.battery_percent)
+            self.energy[(pp, oo)] = float(n.battery_ratio)
             self.sunlight[(pp, oo)] = int(n.is_charging)
 
         for e in all_edges:
