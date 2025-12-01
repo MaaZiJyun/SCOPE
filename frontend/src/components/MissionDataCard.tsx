@@ -10,39 +10,36 @@ interface MissionDataCardProps {
 
 const MissionDataCard: React.FC<MissionDataCardProps> = ({ mission }) => {
   const getStatus = (mission: Task): string => {
-    // Case 1: done
-    if (mission.is_done) return "done";
-
-    // Case 2: computing (acted == 5 and some workload done)
-    if (Number(mission.acted) === 5 && (mission.workload_done ?? 0) > 0) {
+    if (mission.is_done) {
+      return "done";
+    } else if (
+      Number(mission.acted) === 5 &&
+      (mission.workload_done ?? 0) > 0
+    ) {
       return "comp";
-    }
-
-    // Case 3: transferring (acted in 1..4 and some data already sent)
-    if (
+    } else if (
       [1, 2, 3, 4].includes(Number(mission.acted)) &&
       (mission.data_sent ?? 0) > 0
     ) {
       return "tran";
+    } else {
+      return "idle";
     }
-
-    // Case 4: idle
-    return "idle";
   };
 
   const status = getStatus(mission);
   const statusColor = ((s: string) => {
     switch (s) {
       case "idle":
-        return "gray-400";
+        return "text-gray-600 border-gray-600 bg-gray-600/20";
       case "done":
-        return "green-500";
+        return "text-green-600 border-green-600 bg-green-600/20";
       case "comp":
-        return "purple-500";
+        return "text-yellow-600 border-yellow-600 bg-yellow-600/20";
       case "tran":
-        return "blue-500";
+        return "text-blue-600 border-blue-600 bg-blue-600/20";
       default:
-        return "white";
+        return "text-white border-white bg-white/20";
     }
   })(status);
 
@@ -51,7 +48,7 @@ const MissionDataCard: React.FC<MissionDataCardProps> = ({ mission }) => {
       <div className="flex justify-between mb-1">
         Task Status:
         <span
-          className={`text-${statusColor} px-3 rounded-full border border-${statusColor} bg-${statusColor}/20 text-xs`}
+          className={`${statusColor} px-3 rounded-full border text-xs`}
         >
           {status.toUpperCase()}
         </span>
@@ -73,10 +70,10 @@ const MissionDataCard: React.FC<MissionDataCardProps> = ({ mission }) => {
           />
         )}
         {/* {mission.data_percent != 0 && ( */}
-          <ProcessBar
-            progress={mission.data_percent}
-            name={"Temp. Transferring"}
-          />
+        <ProcessBar
+          progress={mission.data_percent}
+          name={"Temp. Transferring"}
+        />
         {/* )} */}
       </div>
     </div>
