@@ -244,7 +244,7 @@ class LEOEnv(gym.Env):
                     truncated_reason = truncated_reason_local
                 # still advance task end time but do not overwrite task.acted
                 task.t_end += 1
-                continue
+                break
 
             # action is valid -> apply effects
             if act == 0:
@@ -276,9 +276,16 @@ class LEOEnv(gym.Env):
                             data_sent=task.data_sent,
                         )
                     )
+                else:
+                    action_reward += WRONG_EDGE_PENALTY
+                    truncated = True
+                    truncated_reason = "action_on_nonexistent_edge"
+                    break
 
             elif act == 5:
-                is_occupied = self.DM.is_po_occupied(p=p, o=o)
+                # is_occupied = self.DM.is_po_occupied(p=p, o=o)
+                _sat = next((s for s in self.sat if s.plane == p and s.order == o), None)
+                is_occupied = _sat.is_processing if _sat else False
                 if not is_occupied:
                     workload = LAYER_PROCESS_STEP_COST[task.layer_id]
                     self.DM.write_pi(p=p, o=o, m=task.id, value=True)

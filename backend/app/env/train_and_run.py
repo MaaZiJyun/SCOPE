@@ -27,7 +27,7 @@ def train_model(input: ProjectDict):
     # Configuration constants (use these instead of CLI)
     POLICY_CHOICE = "MultiInputPolicy"
     MODEL_PATH = "ai_model/ppo_leoenv"
-    TIMESTEPS = 50000
+    TIMESTEPS = 10000
     NUM_ENVS = 1
     LR = 1e-4
 

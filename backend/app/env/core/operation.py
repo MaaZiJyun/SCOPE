@@ -3,7 +3,7 @@ from app.env.io.state_manager import StateManager
 from app.entities.satellite_entity import SatelliteEntity
 from typing import List
 from app.env.io.decision_manager import DecisionManager
-from app.config import DATA_TRANSFER_PENALTY, DEBUG, LAYER_COMPLETION_REWARD, LAYER_OUTPUT_DATA_SIZE, LAYER_PROCESS_STEP_COST, MAX_NUM_LAYERS, STEP_PER_SECOND, T_STEP, TASK_COMPLETION_REWARD, TASK_COMPLETION_REWARD, TRANS_COMPLETION_REWARD
+from app.config import DATA_COMPUTE_REWARD, DATA_TRANSFER_PENALTY, DEBUG, LAYER_COMPLETION_REWARD, LAYER_OUTPUT_DATA_SIZE, LAYER_PROCESS_STEP_COST, MAX_NUM_LAYERS, STEP_PER_SECOND, T_STEP, TASK_COMPLETION_REWARD, TASK_COMPLETION_REWARD, TRANS_COMPLETION_REWARD
 from app.env.vars.request import CompReq, TransReq
 from app.env.vars.task import Task
 
@@ -32,15 +32,20 @@ def do_computing(
         # 更新计算进度
         task.workload_done += 1
         task.workload_percent = task.workload_done / target
+        # 奖励塑形：每步计算给予微奖励，降低纯稀疏奖励带来的探索困难
+        
+        # 加上每次计算奖励
+        rewards += DATA_COMPUTE_REWARD
 
         # 检查是否完成计算
         if task.workload_done >= target:
-            
-            # 计算完成，更新任务位置
+            # 计算完成：进入下一层
             task.layer_id += 1
-            task.completion = n / MAX_NUM_LAYERS
             task.workload_done = 0
             task.workload_percent = 0.0
+            
+            # 正确的完成度应基于更新后的 task.layer_id
+            task.completion = task.layer_id / MAX_NUM_LAYERS
             
             # 加上层完成奖励
             rewards += LAYER_COMPLETION_REWARD
@@ -53,7 +58,7 @@ def do_computing(
         # 更新任务完成度到StateManager
         sm.write_progress(m=m, value=task.completion)
         # 记录当前任务累计计算进度（按任务）
-        sm.write_workload(m=m, value=float(task.workload_percent))
+        sm.write_workload(m=m, value=task.workload_percent)
         
     return rewards
 
@@ -72,7 +77,7 @@ def do_transferring(
         dst = req.dst
         
         # 获取任务当前层数和位置
-        src = sm.get_location(m)
+        # src = sm.get_location(m)
         
         # 找到对应的任务对象
         task = next((task for task in tasks if task.id == m), None)
@@ -81,6 +86,7 @@ def do_transferring(
         
         # 得到当前需要传输的总数据量
         n = task.layer_id
+        src = (task.plane_at, task.order_at)
         target_data_to_send = LAYER_OUTPUT_DATA_SIZE[n]
         
         # 获取当前通信速率
@@ -134,7 +140,7 @@ def do_transferring(
             rewards += TRANS_COMPLETION_REWARD
         
         # 写入按任务的累计传输进度（比例）
-        sm.write_size(m=m, value=float(task.data_percent))
+        sm.write_size(m=m, value=task.data_percent)
         # 更新任务位置
         sm.write_location(m=m, value=(task.plane_at, task.order_at))
 
