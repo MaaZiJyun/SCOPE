@@ -1,8 +1,7 @@
-from typing import List
+from typing import List, Dict, Tuple
 
 from app.env.vars.node import Node
 from app.env.vars.task import Task
-from typing import List
 import numpy as np
 import logging
 from app.config import DEBUG, STEP_PER_SLOT
@@ -19,72 +18,58 @@ def all_tasks_overtimed(tasks: List[Task]):
     return result
 
 def any_illegal_link(sm: StateManager, dm: DecisionManager, eps: float = 1e-9):
+    """Detect any active transfer decisions on links with zero/invalid capacity.
+
+    Updated for dict-based DecisionManager.rho where keys are
+    (up, uo, vp, vo, m) -> 1.
+    """
     result = False
 
     if sm.is_empty() or dm.is_empty():
         return result
 
-    operating_links = np.argwhere(dm.rho != 0)
-    if DEBUG:
-        logging.debug("any_illegal_link: dm.rho.shape=%s, sm.comm.shape=%s, #ops_raw=%d",
-                      getattr(dm, "rho", None).shape if hasattr(dm, "rho") else None,
-                      getattr(sm, "comm", None).shape if hasattr(sm, "comm") else None,
-                      len(operating_links))
+    # Build set of unique directed links and the list of task IDs using them
+    link_to_tasks: Dict[Tuple[int, int, int, int], List[int]] = {}
+    for (up, uo, vp, vo, m), val in dm.rho.items():
+        if not val:
+            continue
+        key = (int(up), int(uo), int(vp), int(vo))
+        link_to_tasks.setdefault(key, []).append(int(m))
 
-    if operating_links.size == 0:
+    if DEBUG:
+        logging.debug(
+            "any_illegal_link(dict): unique_links=%d",
+            len(link_to_tasks),
+        )
+
+    if not link_to_tasks:
         return False
 
-    first4 = operating_links[:, :4]
-    unique_links = np.unique(first4, axis=0)
-
-    # log summary of unique candidate links
-    logging.debug("any_illegal_link: unique_links_count=%d sample=%s", len(unique_links),
-                  unique_links[:10].tolist() if len(unique_links) > 0 else [])
-
-    for up, uo, vp, vo in unique_links:
-        up, uo, vp, vo = map(int, (up, uo, vp, vo))
+    for (up, uo, vp, vo), task_ids in link_to_tasks.items():
+        # read comm capacity for this directed link
         try:
-            rho_slice = dm.rho[up, uo, vp, vo]
+            comm_f = float(sm.get_comm((up, uo), (vp, vo)))
         except Exception as ex:
-            logging.debug("any_illegal_link: cannot read dm.rho[%d,%d,%d,%d]: %s", up, uo, vp, vo, ex)
-            continue
-
-        try:
-            active = bool(np.any(rho_slice != 0))
-        except Exception:
-            active = bool(rho_slice != 0)
-
-        if not active:
-            continue
-
-        # get comm and neighbor info safely
-        try:
-            comm_val = sm.get_comm((up, uo), (vp, vo))
-            comm_f = float(np.asarray(comm_val).item()) if np.asarray(comm_val).size == 1 else float(np.asarray(comm_val).flatten()[0])
-        except Exception as ex:
-            logging.debug("any_illegal_link: unable to read sm.comm for U(%d,%d)<->V(%d,%d): %s", up, uo, vp, vo, ex)
+            logging.debug(
+                "any_illegal_link(dict): error reading sm.comm for U(%d,%d)->V(%d,%d): %s",
+                up, uo, vp, vo, ex,
+            )
             comm_f = 0.0
 
         if comm_f <= eps:
-            # more debug: positions inside rho_slice that are active
+            # neighbors currently initialized for each endpoint (dict-based)
             try:
-                active_positions = np.argwhere(np.asarray(rho_slice) != 0).tolist()
-            except Exception:
-                active_positions = "unknown"
-
-            # neighbors currently initialized for each endpoint
-            try:
-                neighbors_u = np.argwhere(sm.comm[up, uo] != 0).tolist()
+                neighbors_u = sm.neighbors_of((up, uo))
             except Exception as ex:
                 neighbors_u = f"error:{ex}"
             try:
-                neighbors_v = np.argwhere(sm.comm[vp, vo] != 0).tolist()
+                neighbors_v = sm.neighbors_of((vp, vo))
             except Exception as ex:
                 neighbors_v = f"error:{ex}"
             if DEBUG:
                 logging.warning(
-                    "Problem link: U(%d,%d) <-> V(%d,%d)  dm.rho active_positions=%s  sm.comm=%s  neighbors_U=%s neighbors_V=%s",
-                    up, uo, vp, vo, active_positions, comm_f, neighbors_u, neighbors_v
+                    "Problem link: U(%d,%d) -> V(%d,%d)  tasks=%s  sm.comm=%s  neighbors_U=%s neighbors_V=%s",
+                    up, uo, vp, vo, task_ids, comm_f, neighbors_u, neighbors_v,
                 )
             result = True
 

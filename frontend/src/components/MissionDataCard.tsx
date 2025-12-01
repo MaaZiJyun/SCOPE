@@ -64,7 +64,7 @@ const MissionDataCard: React.FC<MissionDataCardProps> = ({ mission }) => {
       </div>
       <div className="mb-1">
         {!mission.is_done && (
-          <ProcessBar progress={mission.infer_percent} name={"Completion"} />
+          <ProcessBar progress={mission.completion} name={"Completion"} />
         )}
         {mission.workload_percent != 0 && (
           <ProcessBar

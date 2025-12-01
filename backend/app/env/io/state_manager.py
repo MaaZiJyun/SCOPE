@@ -21,23 +21,29 @@ class StateManager:
         self.N_MAX = MAX_NUM_LAYERS
         self.M_MAX = MAX_NUM_TASKS
 
-        # For topology (full-shape)
-        self.energy = np.zeros((self.P_MAX, self.O_MAX), dtype=np.float32)
-        self.sunlight = np.zeros((self.P_MAX, self.O_MAX), dtype=np.int8)
-        self.comm = np.zeros((self.P_MAX, self.O_MAX, self.P_MAX, self.O_MAX), dtype=np.float32)
+        # Internal storages (sparse dicts). Keys are tuples; values are scalars.
+        # Topology
+        self.energy: Dict[Tuple[int, int], float] = {}
+        self.sunlight: Dict[Tuple[int, int], int] = {}
+        # Directed link capacities: (up,uo,vp,vo) -> float rate
+        self.comm: Dict[Tuple[int, int, int, int], float] = {}
 
-        # For tasks: preallocate using M_MAX (active task count is tracked by self._M)
-        self.location = np.zeros((self.M_MAX, 2), dtype=np.int32)
-        self.progress = np.zeros(self.M_MAX, dtype=np.int32)
-        self.size = np.zeros((self.M_MAX, self.N_MAX), dtype=np.float32)
-        self.workload = np.zeros((self.M_MAX, self.N_MAX), dtype=np.int32)
+        # Tasks
+        # m -> (p,o)
+        self.location: Dict[int, Tuple[int, int]] = {}
+        # m -> current layer index
+        self.progress: Dict[int, int] = {}
+        # (m) -> float
+        self.size: Dict[int, float] = {}
+        # (m) -> int
+        self.workload: Dict[int, int] = {}
 
 
     def setup(self, all_nodes: List[SatelliteEntity], all_edges: List[LinkSnapshot], all_tasks: List[Task]):
         for n in all_nodes:
-            pp, oo = n.plane, n.order
-            self.energy[pp, oo] = n.battery_percent
-            self.sunlight[pp, oo] = n.is_charging
+            pp, oo = int(n.plane), int(n.order)
+            self.energy[(pp, oo)] = float(n.battery_percent)
+            self.sunlight[(pp, oo)] = int(n.is_charging)
 
         for e in all_edges:
             # defensive: map ids -> nodes (may be None if link is to GS etc)
@@ -52,13 +58,13 @@ class StateManager:
             dst_p, dst_o = int(v.plane), int(v.order)
 
             # avoid duplicate initialization — if already set and similar rate, skip or keep max
-            existing = float(self.comm[src_p, src_o, dst_p, dst_o])
+            existing = float(self.comm.get((src_p, src_o, dst_p, dst_o), 0.0))
             new_rate = float(e.rate)
             if existing != 0.0:
                 # keep the maximum rate to be safe and avoid duplicate prints
                 if new_rate > existing:
-                    self.comm[src_p, src_o, dst_p, dst_o] = new_rate
-                    self.comm[dst_p, dst_o, src_p, src_o] = new_rate
+                    self.comm[(src_p, src_o, dst_p, dst_o)] = new_rate
+                    self.comm[(dst_p, dst_o, src_p, src_o)] = new_rate
                     if DEBUG:
                         print("StateManager.setup: updated comm link U(%d,%d)<->V(%d,%d) to higher rate %f", src_p, src_o, dst_p, dst_o, new_rate)
                 else:
@@ -66,15 +72,14 @@ class StateManager:
                         print("StateManager.setup: skipping duplicate comm link U(%d,%d)<->V(%d,%d) (existing=%f new=%f)", src_p, src_o, dst_p, dst_o, existing, new_rate)
                 continue
 
-            self.comm[src_p, src_o, dst_p, dst_o] = new_rate
-            self.comm[dst_p, dst_o, src_p, src_o] = new_rate
+            self.comm[(src_p, src_o, dst_p, dst_o)] = new_rate
+            self.comm[(dst_p, dst_o, src_p, src_o)] = new_rate
             if DEBUG:
                 print("StateManager.setup: initialized comm link U(%d,%d) <-> V(%d,%d) with rate %f", src_p, src_o, dst_p, dst_o, new_rate)
 
         for t in all_tasks:
-            self.location[t.id, 0] = t.plane_at
-            self.location[t.id, 1] = t.order_at
-            self.progress[t.id] = t.layer_id
+            self.location[int(t.id)] = (int(t.plane_at), int(t.order_at))
+            self.progress[int(t.id)] = int(t.layer_id)
             
     def update(self, current_task_length: int):
         self._M = current_task_length
@@ -85,93 +90,127 @@ class StateManager:
         return beta_t
 
     def reset(self):
-        self.energy.fill(0)
-        self.sunlight.fill(0)
-        self.comm.fill(0)
-        self.location.fill(0)
-        self.progress.fill(0)
-        self.size.fill(0)
-        self.workload.fill(0)
+        self.energy.clear()
+        self.sunlight.clear()
+        self.comm.clear()
+        self.location.clear()
+        self.progress.clear()
+        self.size.clear()
+        self.workload.clear()
 
     def write_energy(self, p: int, o: int, value: float):
-        self.energy[(p, o)] = value
+        self.energy[(int(p), int(o))] = float(value)
         
     def write_sunlight(self, p: int, o: int, value: int):
-        self.sunlight[(p, o)] = value
+        self.sunlight[(int(p), int(o))] = int(value)
         
     def write_comm(self, u: Tuple[int, int], v: Tuple[int, int], value: float):
-        up, uo = u
-        vp, vo = v
-        self.comm[up, uo, vp, vo] = value
+        up, uo = int(u[0]), int(u[1])
+        vp, vo = int(v[0]), int(v[1])
+        self.comm[(up, uo, vp, vo)] = float(value)
         
     def write_location(self, m: int, value: Tuple[int, int]):
-        self.location[m,0] = value[0]
-        self.location[m,1] = value[1]
+        self.location[int(m)] = (int(value[0]), int(value[1]))
 
     def write_progress(self, m: int, value: int):
-        self.progress[m] = value
+        self.progress[int(m)] = int(value)
         
-    def write_size(self, m: int, n: int, value: float):
+    def write_size(self, m: int, value: float):
         # accumulate size within the current step (per-step increments)
-        self.size[m, n] = float(self.size[m, n]) + float(value)
+        self.size[int(m)] = float(self.size.get(int(m), 0.0)) + float(value)
             
-    def write_workload(self, m: int, n: int, value: int):
-            # accumulate workload within the current step (per-step increments)
-        self.workload[m, n] = int(self.workload[m, n]) + int(value)
+    def write_workload(self, m: int, value: int):
+        # accumulate workload within the current step (per-step increments)
+        self.workload[int(m)] = int(self.workload.get(int(m), 0)) + int(value)
 
     def clear_progress_counters(self):
         """Clear per-step increment counters (call at the start of each env.step)."""
         # workload and size may represent per-step increments
-        try:
-            self.workload.fill(0)
-            self.size.fill(0.0)
-        except Exception:
-            pass
+        # Clear per-step increments
+        self.workload.clear()
+        self.size.clear()
         
     def get_comm(self, u: Tuple[int, int], v: Tuple[int, int]) -> float:
-        up, uo = u
-        vp, vo = v
-        return float(self.comm[up, uo, vp, vo])
+        up, uo = int(u[0]), int(u[1])
+        vp, vo = int(v[0]), int(v[1])
+        return float(self.comm.get((up, uo, vp, vo), 0.0))
     
     def get_size(self, m: int, n: int) -> float:
-        return self.size[(m, n)]
+        return float(self.size.get((int(m), int(n)), 0.0))
     
     def get_progress(self, m: int) -> int:
-        return self.progress[m]
+        return int(self.progress.get(int(m), 0))
     
     def get_location(self, m: int) -> Tuple[int, int]:
-        return tuple(self.location[m])
+        return tuple(self.location.get(int(m), (0, 0)))
+
+    def neighbors_of(self, u: Tuple[int, int]) -> List[Tuple[int, int]]:
+        """Return list of neighbors v for which a link exists from or to u.
+        Uses current directed comm entries.
+        """
+        up, uo = int(u[0]), int(u[1])
+        nbrs: List[Tuple[int, int]] = []
+        for (sp, so, tp, to), rate in ((k, v) for k, v in self.comm.items() if v and v != 0):
+            if sp == up and so == uo:
+                nbrs.append((tp, to))
+            elif tp == up and to == uo:
+                nbrs.append((sp, so))
+        # unique
+        seen = set()
+        uniq = []
+        for v in nbrs:
+            if v not in seen:
+                uniq.append(v)
+                seen.add(v)
+        return uniq
     
     def _to_beta(self) -> Dict[str, np.ndarray]:
         """Return a snapshot of current state (beta) with topology full-shape
         and task arrays limited to the first self._M active tasks.
         """
-        # topology arrays (full shape)
-        valid_energy = self.energy.copy()
-        valid_sunlight = self.sunlight.copy()
-        valid_comm = self.comm.copy()
+        # Build dense arrays for observation compatibility
+        energy_arr = np.zeros((self.P_MAX, self.O_MAX), dtype=np.float32)
+        for (p, o), val in self.energy.items():
+            if 0 <= p < self.P_MAX and 0 <= o < self.O_MAX:
+                energy_arr[p, o] = float(val)
 
-        # task arrays: take first self._M rows
-        if self._M <= 0:
-            # return empty task arrays with shape (0,...)
-            valid_location = np.zeros((0, 2), dtype=self.location.dtype)
-            valid_progress = np.zeros((0,), dtype=self.progress.dtype)
-            valid_size = np.zeros((0, self.N_MAX), dtype=self.size.dtype)
-            valid_workload = np.zeros((0, self.N_MAX), dtype=self.workload.dtype)
-        else:
-            valid_location = self.location[: self._M].copy()
-            valid_progress = self.progress[: self._M].copy()
-            valid_size = self.size[: self._M].copy()
-            valid_workload = self.workload[: self._M].copy()
+        sunlight_arr = np.zeros((self.P_MAX, self.O_MAX), dtype=np.float32)
+        for (p, o), val in self.sunlight.items():
+            if 0 <= p < self.P_MAX and 0 <= o < self.O_MAX:
+                sunlight_arr[p, o] = float(val)
+
+        comm_arr = np.zeros((self.P_MAX, self.O_MAX, self.P_MAX, self.O_MAX), dtype=np.float32)
+        for (up, uo, vp, vo), val in self.comm.items():
+            if 0 <= up < self.P_MAX and 0 <= uo < self.O_MAX and 0 <= vp < self.P_MAX and 0 <= vo < self.O_MAX:
+                comm_arr[up, uo, vp, vo] = float(val)
+
+        # Task arrays limited to first _M tasks
+        M = max(int(self._M), 0)
+        location_arr = np.zeros((M, 2), dtype=np.int32)
+        progress_arr = np.zeros((M,), dtype=np.int32)
+        size_arr = np.zeros((M, self.N_MAX), dtype=np.float32)
+        workload_arr = np.zeros((M, self.N_MAX), dtype=np.int32)
+
+        for m in range(M):
+            if m in self.location:
+                p, o = self.location[m]
+                location_arr[m, 0] = int(p)
+                location_arr[m, 1] = int(o)
+            if m in self.progress:
+                progress_arr[m] = int(self.progress[m])
+            # sizes/workload: iterate layers
+            for n in range(self.N_MAX):
+                size_arr[m, n] = float(self.size.get((m, n), 0.0))
+                workload_arr[m, n] = int(self.workload.get((m, n), 0))
 
         beta_t = {
-            "energy": valid_energy,
-            "sunlight": valid_sunlight,
-            "comm": valid_comm,
-            "location": valid_location,
-            "progress": valid_progress,
-            "size": valid_size,
-            "workload": valid_workload,
+            "energy": energy_arr,
+            "sunlight": sunlight_arr,
+            "comm": comm_arr,
+            "location": location_arr,
+            "progress": progress_arr,
+            "size": size_arr,
+            "workload": workload_arr,
         }
 
         return beta_t
@@ -196,8 +235,7 @@ class StateManager:
                 result += float(arr[m, n])
         # always include the current in-memory buffer for step T
         try:
-            if 0 <= m < self.size.shape[0] and 0 <= n < self.size.shape[1]:
-                result += float(self.size[m, n])
+            result += float(self.size.get((int(m), int(n)), 0.0))
         except Exception:
             pass
         return result
@@ -224,8 +262,7 @@ class StateManager:
                 result += int(arr[m, n])
         # always include the current in-memory buffer for step T
         try:
-            if 0 <= m < self.workload.shape[0] and 0 <= n < self.workload.shape[1]:
-                result += int(self.workload[m, n])
+            result += int(self.workload.get((int(m), int(n)), 0))
         except Exception:
             pass
         return result

@@ -22,7 +22,7 @@ class Task(BaseModel):
     
     # functional counters
     layer_id: int = 0
-    infer_percent: float = 0.0
+    completion: float = 0.0
     acted: int = 0 # to record action taken
     workload_done: int = 0 # to record computation progress
     workload_percent: float = 0.0

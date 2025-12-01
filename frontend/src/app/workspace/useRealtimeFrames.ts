@@ -51,7 +51,7 @@ export function useRealtimeFrames() {
       try {
         const frame: RealTime = JSON.parse(event.data);
         // setFrames((prev) => [...prev, frame])
-        // console.log("Received frame:", frame);
+        console.log("Received frame:", frame);
         updateFrames(frame);
       } catch (e) {
         console.error("Frame parsing error:", e);

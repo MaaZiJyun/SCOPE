@@ -268,7 +268,6 @@ class LEOEnv(gym.Env):
                 action_reward += NO_ACTION_PENALTY
 
             elif act in [1, 2, 3, 4]:
-                action_reward += DATA_TRANSFER_PENALTY
 
                 # movement actions
                 if act == 1:
@@ -280,7 +279,7 @@ class LEOEnv(gym.Env):
                 else:
                     dst = (p, (o - 1) % self.EG.N_SAT)
 
-                self.DM.write_rho(u=(p, o), v=dst, n=task.layer_id, m=task.id, value=True)
+                self.DM.write_rho(u=(p, o), v=dst, m=task.id, value=True)
 
                 if ((p, o), dst) in self.EG.edges_dict:
                     data_bits = LAYER_OUTPUT_DATA_SIZE[task.layer_id]
@@ -299,7 +298,7 @@ class LEOEnv(gym.Env):
                 is_occupied = self.DM.is_po_occupied(p=p, o=o)
                 if not is_occupied:
                     workload = LAYER_PROCESS_STEP_COST[task.layer_id]
-                    self.DM.write_pi(p=p, o=o, n=task.layer_id, m=task.id, value=True)
+                    self.DM.write_pi(p=p, o=o, m=task.id, value=True)
                     node.is_processing = True
                     comp_reqs.append(
                         CompReq(
@@ -317,7 +316,7 @@ class LEOEnv(gym.Env):
             task.acted = act
 
         # 执行传输与计算
-        action_reward += do_transferring(tasks=tasks, trans_reqs=trans_reqs, sm=self.SM, dm=self.DM, t=self.frame_counter)
+        action_reward += do_transferring(tasks=tasks, trans_reqs=trans_reqs, sm=self.SM, dm=self.DM)
         action_reward += do_computing(comp_reqs=comp_reqs, tasks=tasks, sm=self.SM, dm=self.DM, t=self.frame_counter)
         do_energy_updating(slot=T_STEP, nodes=nodes, sm=self.SM)
 

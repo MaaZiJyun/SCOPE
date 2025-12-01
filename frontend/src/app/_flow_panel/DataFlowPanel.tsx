@@ -67,7 +67,7 @@ function SatDataNode({ sat }: { sat: SatelliteFrame }) {
 }
 function TaskDataNode({ sat, task }: { sat: SatelliteFrame; task: Task }) {
   const meshRef = useRef<THREE.Mesh>(null!);
-  const ratio = 1 - task.infer_percent;
+  const ratio = 1 - task.completion;
 
   useFrame(() => {
     if (meshRef.current) {
@@ -179,7 +179,7 @@ function DataFlowScene({
             (s) => s.plane === t.plane_at && s.order === t.order_at
           );
           if (!sat) return null;
-
+          console.log("Rendering task:", t.id, "on sat:", sat.id);
           const act = Number(t.acted);
           if ([1, 2, 3, 4].includes(act) === false) {
             if (sat) return <TaskDataNode key={t.id} sat={sat} task={t} />;

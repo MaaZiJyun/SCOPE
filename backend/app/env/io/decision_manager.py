@@ -1,91 +1,101 @@
-import numpy as np
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 from app.config import DEBUG, MAX_NUM_LAYERS, MAX_NUM_TASKS
 
 
 class DecisionManager:
-    def __init__(self, p_max: int, o_max: int):
-        
-        self._M = 0
-        self._alpha = {}
+    """
+    A sparse, dictionary-based decision buffer for actions.
+    - pi[(p, o, m)] = int
+    - rho[(up, uo, vp, vo, m)] = int
 
+    Layer index `n` has been removed from the decision tensors. If layer
+    information is needed by consumers (e.g., for bandwidth weights), they
+    should query the StateManager (e.g., sm.get_progress(m)).
+    """
+
+    def __init__(self, p_max: int, o_max: int):
+        self._M = 0  # active task count (for reference only)
+        self._alpha: Dict[int, Dict[str, dict]] = {}
+
+        # retained for reference/documentation
         self.P_MAX = p_max
         self.O_MAX = o_max
-        self.N_MAX = MAX_NUM_LAYERS
+        # self.N_MAX = MAX_NUM_LAYERS
         self.M_MAX = MAX_NUM_TASKS
-        
-        self.pi = np.zeros((self.P_MAX, self.O_MAX, self.M_MAX, self.N_MAX), dtype=np.int8)
-        self.rho = np.zeros((self.P_MAX, self.O_MAX, self.P_MAX, self.O_MAX, self.M_MAX, self.N_MAX), dtype=np.int8)
+
+        # sparse storages (without layer index n)
+        self.pi: Dict[Tuple[int, int, int], int] = {}
+        self.rho: Dict[Tuple[int, int, int, int, int], int] = {}
 
     def update(self, current_task_length: int):
         self._M = current_task_length
-        
-    def report(self, step: int) -> Dict[str, np.ndarray]:
+
+    def report(self, step: int) -> Dict[str, dict]:
         alpha_t = self._to_alpha()
         self._alpha[step] = alpha_t
         return alpha_t
-        
+
     def reset(self):
-        self.pi.fill(0)
-        self.rho.fill(0)
+        self.pi.clear()
+        self.rho.clear()
 
-    def write_pi(self, p: int, o: int, n: int, m: int, value: int):
-        # p,o are plane and order indices; m is task index; n is layer index
-        self.pi[p, o, m, n] = int(value)
+    def write_pi(self, p: int, o: int, m: int, value: int):
+        # p,o are plane and order indices; m is task id
+        key = (p, o, m)
+        if value:
+            self.pi[key] = 1
+        else:
+            # remove falsy entries to keep sparse
+            self.pi.pop(key, None)
 
-    def write_rho(self, u: Tuple[int, int], v: Tuple[int, int], n: int, m: int, value: int):
+    def write_rho(self, u: Tuple[int, int], v: Tuple[int, int], m: int, value: int):
         # u and v are tuples (plane, order)
         up, uo = u
         vp, vo = v
-        self.rho[up, uo, vp, vo, m, n] = int(value)
+        key = (up, uo, vp, vo, m)
+        if value:
+            self.rho[key] = 1
+        else:
+            self.rho.pop(key, None)
         if DEBUG:
-            print(f"[DM] write_rho u={u} v={v} m={m} n={n} value={bool(value)}")
-        
-    def get_rho(self, u: Tuple[int, int], v: Tuple[int, int], n: int, m: int):
-        return self.rho[u[0], u[1], v[0], v[1], m, n]
-    
-    def get_pi(self, p: int, o: int, n: int, m: int):
-        return self.pi[p, o, m, n]
+            print(f"[DM] write_rho u={u} v={v} m={m} value={bool(value)}")
 
-    def is_po_occupied(self, p: int, o: int) -> bool:
-        for mm in range(self._M):
-            for nn in range(MAX_NUM_LAYERS):
-                if self.pi[p, o, mm, nn]:
-                    return True
-        return False
-
-    def get_rho_by_uv(self, u: Tuple[int, int], v: Tuple[int, int]) -> Dict[Tuple[int, int], bool]:
-        result = {}
+    def get_rho(self, u: Tuple[int, int], v: Tuple[int, int], m: int) -> int:
         up, uo = u
         vp, vo = v
-        # iterate over tasks and layers
-        for mm in range(self._M):
-            for nn in range(MAX_NUM_LAYERS):
-                value = self.rho[up, uo, vp, vo, mm, nn]
-                result[(mm, nn)] = bool(value)
+        return int(self.rho.get((up, uo, vp, vo, m), 0))
+
+    def get_pi(self, p: int, o: int, m: int) -> int:
+        return int(self.pi.get((p, o, m), 0))
+
+    def is_po_occupied(self, p: int, o: int) -> bool:
+        # Any active (p,o,*) entry implies occupancy
+        for (pp, oo, m), val in self.pi.items():
+            if pp == p and oo == o and val:
+                return True
+        return False
+
+    def get_rho_by_uv(self, u: Tuple[int, int], v: Tuple[int, int]) -> Dict[int, bool]:
+        result: Dict[int, bool] = {}
+        up, uo = u
+        vp, vo = v
+        # collect existing (m,n) for this edge
+        for (uu, uu_o, vv, vv_o, m), val in self.rho.items():
+            if uu == up and uu_o == uo and vv == vp and vv_o == vo:
+                result[m] = bool(val)
         if DEBUG:
             true_count = sum(1 for val in result.values() if val)
-            print(f"[DM] get_rho_by_uv u={u} v={v} _M={self._M} true_count={true_count}")
+            print(f"[DM] get_rho_by_uv u={u} v={v} tasks={len(result)} true_count={true_count}")
         return result
 
-    def _to_alpha(self) -> Dict[str, np.ndarray]:
-        # slice by task count on the M axis and copy to make a snapshot
-        if self._M <= 0:
-            valid_pi = np.zeros((self.P_MAX, self.O_MAX, 0, self.N_MAX), dtype=np.int8)
-            valid_rho = np.zeros((self.P_MAX, self.O_MAX, self.P_MAX, self.O_MAX, 0, self.N_MAX), dtype=np.int8)
-        else:
-            valid_pi = self.pi[:, :, :self._M, :].copy()   # shape (P_MAX,O_MAX,_M,N_MAX)
-            valid_rho = self.rho[:, :, :, :, :self._M, :].copy()  # shape (P_MAX,O_MAX,P_MAX,O_MAX,_M,N_MAX)
-        alpha_t = {
-            "pi": valid_pi,
-            "rho": valid_rho,
+    def _to_alpha(self) -> Dict[str, dict]:
+        # return shallow copies (immutable snapshot) of current sparse tensors
+        return {
+            "pi": dict(self.pi),
+            "rho": dict(self.rho),
         }
-        return alpha_t
-    
+
     def is_empty(self) -> bool:
-        """
-        检查决策管理器是否为空（没有初始化数据）。
-        :return: 是否为空 (bool)
-        """
-        return self._M == 0
+        """Return True if no decisions have been recorded for current step."""
+        return self._M == 0 and not self.pi and not self.rho

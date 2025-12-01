@@ -33,7 +33,7 @@ export interface Message {
 export interface Task{
   id: number;
   layer_id: number;
-  infer_percent: number;
+  completion: number;
   plane_at: number;
   order_at: number;
   t_start: number;
