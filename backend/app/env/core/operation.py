@@ -125,12 +125,14 @@ def do_transferring(
         sm.write_size(m=m, n=n, value=data_per_step)
         # 同步 Task.data_sent 使用 StateManager 的累计值作为单一信源，
         # 避免本地计数器与 state buffer 发生漂移。
-        sent_data = sm.sum_size_before(m=m, n=n, T=t)
-        task.data_sent = float(sent_data)
+        # sent_data = sm.sum_size_before(m=m, n=n, T=t)
+        # task.data_sent = float(sent_data)
+        task.data_sent += data_per_step
         task.data_percent = task.data_sent / LAYER_OUTPUT_DATA_SIZE[task.layer_id]
 
         # 检查是否完成传输
-        if sent_data >= target_data_to_send:
+        # if sent_data >= target_data_to_send:
+        if task.data_sent >= target_data_to_send:
             # 传输完成，更新任务位置 (write destination coordinates)
             sm.write_location(m=m, value=dst)
             task.plane_at, task.order_at = dst

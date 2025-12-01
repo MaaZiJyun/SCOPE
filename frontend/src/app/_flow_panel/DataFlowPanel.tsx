@@ -4,16 +4,6 @@ import { OrbitControls, Html } from "@react-three/drei";
 import { SCALE } from "../../lib/DefaultObjects";
 import * as THREE from "three";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  BarChart,
-  Bar,
-} from "recharts";
-import {
   LinkFrame,
   SatelliteFrame,
   StationFrame,
@@ -86,7 +76,7 @@ function TaskDataNode({ sat, task }: { sat: SatelliteFrame; task: Task }) {
       const size = THREE.MathUtils.clamp(
         ratio * 5000,
         sat.attnHead ? 1 : 0,
-        100
+        80
       );
       meshRef.current.scale.set(size, size, size);
     }
@@ -100,13 +90,13 @@ function TaskDataNode({ sat, task }: { sat: SatelliteFrame; task: Task }) {
       <meshStandardMaterial
         color={color}
         transparent
-        opacity={task.acted === 5 ? 1 : 0.5}
+        opacity={1}
         emissive={color}
-        emissiveIntensity={2}
+        emissiveIntensity={1}
       />
-      <Html distanceFactor={5000} position={[0, 0, 0]}>
-        <div className="select-none flex flex-col w-12 items-center">
-          <span>Task {task.id} ({task.plane_at}, {task.order_at})</span>
+      <Html position={[0, 0, 0]}>
+        <div className="select-none px-3 py-1 w-20 items-center bg-black/60 rounded-md text-sm">
+          <span>Task {task.id}</span>
         </div>
       </Html>
     </mesh>
@@ -234,11 +224,11 @@ function DataFlowScene({
 
             // --- cone size ---
             const coneHeight = Math.min(1000, Math.max(60, dist * 0.1));
-            const coneRadius = coneHeight * 0.35;
+            const coneRadius = coneHeight * 0.2;
 
             // --- short line: length = 1/2 of full distance ---
-            const lineLength = dist * 0.2;
-            const cylinderRadius = Math.max(8, dist * 0.01); // 控制粗细
+            const lineLength = dist * t.data_percent;
+            const cylinderRadius = Math.max(8, dist * 0.008); // 控制粗细
             const cylPos = startVec
               .clone()
               .add(dirNorm.clone().multiplyScalar(lineLength * 0.5));
@@ -258,7 +248,7 @@ function DataFlowScene({
               );
 
             const color = getColorFromId(t.id);
-            const trans = 0.5;
+            const trans = 1;
 
             arrowEl = (
               <group key={`arrow-${t.id}`}>

@@ -72,12 +72,12 @@ const MissionDataCard: React.FC<MissionDataCardProps> = ({ mission }) => {
             name={"Temp. Processing"}
           />
         )}
-        {mission.data_percent != 0 && (
+        {/* {mission.data_percent != 0 && ( */}
           <ProcessBar
             progress={mission.data_percent}
             name={"Temp. Transferring"}
           />
-        )}
+        {/* )} */}
       </div>
     </div>
   );
