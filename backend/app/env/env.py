@@ -7,21 +7,18 @@ from typing import List
 from app.env.io.decision_manager import DecisionManager
 from app.env.io.state_manager import StateManager
 from app.env.core.constraints import all_tasks_completed, all_tasks_overtimed, any_illegal_link, any_satellite_depleted
-from app.config import ALL_TASK_COMPLETION_REWARD, COMPUTE_ENERGY_COST, DATA_TRANSFER_PENALTY, ENERGY_DROWN_PENALTY, INTERRUPTION_PENALTY, LAYER_OUTPUT_DATA_SIZE, LAYER_PROCESS_STEP_COST, NO_ACTION_PENALTY, MAX_NUM_TASKS, OVERTIME_PENALTY, OVERTIME_PENALTY, STEP_PER_SLOT, T_SLOT, T_STEP, TASK_COMPLETION_REWARD, TRANSMIT_ENERGY_COST, WRONG_EDGE_PENALTY
+from app.config import ALL_TASK_COMPLETION_REWARD, ENERGY_DROWN_PENALTY, INTERRUPTION_PENALTY, LAYER_OUTPUT_DATA_SIZE, LAYER_PROCESS_STEP_COST, NO_ACTION_PENALTY, MAX_NUM_TASKS, OVERTIME_PENALTY, OVERTIME_PENALTY, STEP_PER_SLOT, T_SLOT, T_STEP, TASK_COMPLETION_REWARD, TRANSMIT_ENERGY_COST, WRONG_EDGE_PENALTY
 from app.env.core.entity_col import EntityCol
 from app.env.core.task_manager import TaskManager
-# from app.env.vars.visualizer import render_satellite_network
 from app.env.vars.request import CompReq, TransReq
 from app.env.core.formulation import compute_delay_penalty, compute_energy_penalty, settle_reward
 from app.env.core.operation import do_computing, do_energy_updating, do_transferring
 from app.env.core.observation import get_obs
-# from app.env.snapshot.info import Info
 from datetime import datetime, timedelta, timezone
 from app.entities.earth_entity import EarthEntity
 from app.entities.roi_entity import ROIEntity
 from app.entities.sun_entity import SunEntity
 from app.services.network_service import Network
-from app.entities.functions.prepare import preparation_of_earth, preparation_of_roi, preparation_of_satellite, preparation_of_station, preparation_of_sun, to_times
 from app.entities.satellite_entity import SatelliteEntity
 from app.entities.station_entity import StationEntity
 from app.models.api_dict.pj import ProjectDict
@@ -317,7 +314,7 @@ class LEOEnv(gym.Env):
 
         # 执行传输与计算
         action_reward += do_transferring(tasks=tasks, trans_reqs=trans_reqs, sm=self.SM, dm=self.DM)
-        action_reward += do_computing(comp_reqs=comp_reqs, tasks=tasks, sm=self.SM, dm=self.DM, t=self.frame_counter)
+        action_reward += do_computing(tasks=tasks, comp_reqs=comp_reqs, sm=self.SM, dm=self.DM)
         do_energy_updating(slot=T_STEP, nodes=nodes, sm=self.SM)
 
         # 计算目标与最终 reward
@@ -386,11 +383,6 @@ class LEOEnv(gym.Env):
                 self.period_update()
 
         return obs, reward, terminated, truncated, info_serial
-
-    # def render(self):
-    #     # from envs.renderer.visualizer import render_satellite_network
-    #     tasks = self.TM.get_tasks_at(step=self.frame_counter)
-    #     nodes, edges = self.EG.get_nodes(), self.EG.get_edges()
 
     def action_masks(self):
         """

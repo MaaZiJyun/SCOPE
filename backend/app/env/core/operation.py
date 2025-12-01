@@ -12,7 +12,6 @@ def do_computing(
     tasks: List[Task],
     sm: StateManager,
     dm: DecisionManager,
-    t: int,
 ):
     rewards = 0.0
     
@@ -86,8 +85,6 @@ def do_transferring(
         comm_capacity = sm.get_comm(u=src, v=dst)
         if comm_capacity == 0:
             continue
-
-        # 分配带宽比例
         
         # 得到使用该链路的所有任务列表
         users_uv = dm.get_rho_by_uv(u=src, v=dst)  # Dict[m, bool]
