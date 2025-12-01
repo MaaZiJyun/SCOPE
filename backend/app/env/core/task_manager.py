@@ -71,41 +71,6 @@ class TaskManager:
 
         # --- Case 4: idle ---
         return "idle"
-    
-    def build_action_mask(self, task: Task):
-        mask = np.zeros(6, dtype=np.int8)
-
-        state = self.task_state(task)
-
-        if state == "idle":
-            mask[:] = 1  # 全部可用
-
-        elif state == "under_processing":
-            mask[0] = 1  # no-op
-            mask[5] = 1  # compute
-
-        elif state == "under_transferring":
-            prev = task.acted
-            mask[0] = 1
-            mask[prev] = 1   # 只能继续原方向传输
-
-        elif state == "done":
-            mask[0] = 1
-
-        return mask
-
-    def build_action_mask_for_tasks(self, tasks):
-        """Return an array of shape (MAX_NUM_TASKS, 6) boolean mask for given tasks.
-        Inactive slots (beyond provided tasks) will allow no-op (action 0) to avoid
-        all-zero rows.
-        """
-        mask = np.zeros((MAX_NUM_TASKS, 6), dtype=bool)
-        # default: allow no-op for all slots
-        mask[:, 0] = True
-        for i, task in enumerate(tasks):
-            row = self.build_action_mask(task).astype(bool)
-            mask[i, :] = row
-        return mask
 
     def validate_action(self, task: Task, act: int):
         """

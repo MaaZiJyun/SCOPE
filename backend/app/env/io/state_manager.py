@@ -32,11 +32,11 @@ class StateManager:
         # m -> (p,o)
         self.location: Dict[int, Tuple[int, int]] = {}
         # m -> current layer index
-        self.progress: Dict[int, int] = {}
-        # (m) -> float
+        self.completion: Dict[int, float] = {}
+        # m -> float (per-task size metric, e.g., data_percent)
         self.size: Dict[int, float] = {}
-        # (m) -> int
-        self.workload: Dict[int, int] = {}
+        # m -> float/int (per-task workload metric, e.g., workload_percent)
+        self.workload: Dict[int, float] = {}
 
 
     def setup(self, all_nodes: List[SatelliteEntity], all_edges: List[LinkSnapshot], all_tasks: List[Task]):
@@ -79,7 +79,7 @@ class StateManager:
 
         for t in all_tasks:
             self.location[int(t.id)] = (int(t.plane_at), int(t.order_at))
-            self.progress[int(t.id)] = int(t.layer_id)
+            self.completion[int(t.id)] = int(t.layer_id)
             
     def update(self, current_task_length: int):
         self._M = current_task_length
@@ -94,7 +94,7 @@ class StateManager:
         self.sunlight.clear()
         self.comm.clear()
         self.location.clear()
-        self.progress.clear()
+        self.completion.clear()
         self.size.clear()
         self.workload.clear()
 
@@ -113,16 +113,16 @@ class StateManager:
         self.location[int(m)] = (int(value[0]), int(value[1]))
 
     def write_progress(self, m: int, value: int):
-        self.progress[int(m)] = int(value)
+        self.completion[int(m)] = int(value)
         
     def write_size(self, m: int, value: float):
-        # accumulate size within the current step (per-step increments)
-        self.size[int(m)] = float(self.size.get(int(m), 0.0)) + float(value)
+        # record per-task size metric (e.g., cumulative percent)
+        self.size[int(m)] = float(value)
             
-    def write_workload(self, m: int, value: int):
-        # accumulate workload within the current step (per-step increments)
-        self.workload[int(m)] = int(self.workload.get(int(m), 0)) + int(value)
-
+    def write_workload(self, m: int, value: float):
+        # record per-task workload metric (e.g., cumulative percent)
+        self.workload[int(m)] = float(value)
+        
     def clear_progress_counters(self):
         """Clear per-step increment counters (call at the start of each env.step)."""
         # workload and size may represent per-step increments
@@ -139,7 +139,7 @@ class StateManager:
         return float(self.size.get((int(m), int(n)), 0.0))
     
     def get_progress(self, m: int) -> int:
-        return int(self.progress.get(int(m), 0))
+        return int(self.completion.get(int(m), 0))
     
     def get_location(self, m: int) -> Tuple[int, int]:
         return tuple(self.location.get(int(m), (0, 0)))
@@ -188,20 +188,19 @@ class StateManager:
         M = max(int(self._M), 0)
         location_arr = np.zeros((M, 2), dtype=np.int32)
         progress_arr = np.zeros((M,), dtype=np.int32)
-        size_arr = np.zeros((M, self.N_MAX), dtype=np.float32)
-        workload_arr = np.zeros((M, self.N_MAX), dtype=np.int32)
+        size_arr = np.zeros((M,), dtype=np.float32)
+        workload_arr = np.zeros((M,), dtype=np.float32)
 
         for m in range(M):
             if m in self.location:
                 p, o = self.location[m]
                 location_arr[m, 0] = int(p)
                 location_arr[m, 1] = int(o)
-            if m in self.progress:
-                progress_arr[m] = int(self.progress[m])
-            # sizes/workload: iterate layers
-            for n in range(self.N_MAX):
-                size_arr[m, n] = float(self.size.get((m, n), 0.0))
-                workload_arr[m, n] = int(self.workload.get((m, n), 0))
+            if m in self.completion:
+                progress_arr[m] = int(self.completion[m])
+            # sizes/workload: per-task metric only
+            size_arr[m] = float(self.size.get(m, 0.0))
+            workload_arr[m] = float(self.workload.get(m, 0.0))
 
         beta_t = {
             "energy": energy_arr,
@@ -220,9 +219,7 @@ class StateManager:
         获取t时间之前所有size[m, n]历史值，返回float字典。
         """
         result = 0.0
-        # Sum historical snapshots strictly before T, then always include
-        # the current in-memory buffer. This mirrors sum_workload_before's
-        # semantics and prevents timing-dependent under/over-counting.
+        # Sum historical snapshots strictly before T (per-task vectors)
         for t in range(T):
             beta = self._beta.get(t)
             if beta is None:
@@ -230,26 +227,18 @@ class StateManager:
             arr = beta.get("size")
             if arr is None:
                 continue
-            # ensure indices are in range
-            if getattr(arr, 'ndim', 0) >= 2 and 0 <= m < arr.shape[0] and 0 <= n < arr.shape[1]:
-                result += float(arr[m, n])
-        # always include the current in-memory buffer for step T
-        try:
-            result += float(self.size.get((int(m), int(n)), 0.0))
-        except Exception:
-            pass
+            if getattr(arr, 'ndim', 0) == 1 and 0 <= m < arr.shape[0]:
+                result += float(arr[m])
+        # include current in-memory buffer for step T (ignore n)
+        result += float(self.size.get(int(m), 0.0))
         return result
 
     def sum_workload_before(self, m: int, n: int, T: int) -> int:
         """
         获取t时间之前所有workload[m, n]历史值，返回int字典。
         """
-        result = 0
-        # Sum historical snapshots strictly before T, then always include
-        # the current in-memory buffer. This avoids depending on whether
-        # a snapshot for T was created earlier (which can happen when
-        # observations/action_masks are requested before the step completes)
-        # and prevents under- or double-counting the current step.
+        result = 0.0
+        # Sum historical snapshots strictly before T (per-task vectors)
         for t in range(T):
             beta = self._beta.get(t)
             if beta is None:
@@ -257,15 +246,11 @@ class StateManager:
             arr = beta.get("workload")
             if arr is None:
                 continue
-            # ensure indices are in range
-            if getattr(arr, 'ndim', 0) >= 2 and 0 <= m < arr.shape[0] and 0 <= n < arr.shape[1]:
-                result += int(arr[m, n])
-        # always include the current in-memory buffer for step T
-        try:
-            result += int(self.workload.get((int(m), int(n)), 0))
-        except Exception:
-            pass
-        return result
+            if getattr(arr, 'ndim', 0) == 1 and 0 <= m < arr.shape[0]:
+                result += float(arr[m])
+        # include current in-memory buffer for step T (ignore n)
+        result += float(self.workload.get(int(m), 0.0))
+        return int(result)
     
     def is_empty(self) -> bool:
         """

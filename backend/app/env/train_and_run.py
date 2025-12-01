@@ -1,7 +1,6 @@
 from app.env.env import LEOEnv
 from app.models.api_dict.pj import ProjectDict
-from sb3_contrib import MaskablePPO
-from sb3_contrib.common.wrappers import ActionMasker
+from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 import os
@@ -17,24 +16,9 @@ def make_env(input: ProjectDict, seed: int = 0):
                 env.seed(seed)
             except Exception:
                 pass
-        # Monitor the base env, then wrap Monitor with ActionMasker so the resulting
-        # top-level env exposes `action_masks()` to VecEnv and MaskablePPO.
+        # Monitor the base env; no action mask wrapper
         mon = Monitor(env)
-        def mask_fn(mon_env):
-            # mon_env is the Monitor wrapper; try to access the underlying env's action_masks
-            try:
-                # common case: Monitor.env is the wrapped env with action_masks()
-                if hasattr(mon_env, 'env') and hasattr(mon_env.env, 'action_masks'):
-                    return mon_env.env.action_masks()
-                # fallback if monitor already delegates
-                if hasattr(mon_env, 'action_masks'):
-                    return mon_env.action_masks()
-            except Exception:
-                return None
-            return None
-
-        wrapped = ActionMasker(mon, mask_fn)
-        return wrapped
+        return mon
     
     return _init
 
@@ -53,13 +37,12 @@ def train_model(input: ProjectDict):
     env_fns = [make_env(input, seed=i) for i in range(NUM_ENVS)]
     venv = DummyVecEnv(env_fns)
 
-    # Wrap VecNormalize but exclude the action_mask key from normalization
+    # Wrap VecNormalize for numeric keys
     venv = VecNormalize(
         venv,
         norm_obs=True,
         norm_reward=True,
         clip_obs=10.0,
-        # explicitly list numeric keys; do NOT include 'action_mask'
         norm_obs_keys=["energy", "sunlight", "comm", "location", "progress", "size", "workload"],
     )
 
@@ -68,8 +51,8 @@ def train_model(input: ProjectDict):
         "net_arch": {"pi": [256, 256], "vf": [256, 256]},
     }
 
-    # choose MaskablePPO when available so the action_mask emitted by the env is used
-    model = MaskablePPO(
+    # Use standard PPO (no action masks)
+    model = PPO(
         policy=POLICY_CHOICE,
         env=venv,
         verbose=1,

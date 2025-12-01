@@ -18,27 +18,27 @@ def do_computing(
     # 处理每个传输请求
     for req in comp_reqs: 
         m = req.task_id
-        n = sm.get_progress(m)
-        target = LAYER_PROCESS_STEP_COST[n]
+        # n = sm.get_progress(m)
         
         # 找到对应的任务对象
         task = next((task for task in tasks if task.id == m), None)
         if task is None:
             continue
-
-        # 更新计算进度：写入 StateManager 的 per-step 增量缓冲区。
+        
+        # 得到当前需要计算的总工作量
+        n = task.layer_id
+        target = LAYER_PROCESS_STEP_COST[n]
+        
+        # 更新计算进度
         task.workload_done += 1
-        task.workload_percent = task.workload_done / LAYER_PROCESS_STEP_COST[task.layer_id]
+        task.workload_percent = task.workload_done / target
 
         # 检查是否完成计算
         if task.workload_done >= target:
             
             # 计算完成，更新任务位置
             task.layer_id += 1
-            sm.write_progress(m=m, value=task.layer_id)
-            
-            # 更新任务完成度
-            task.completion = task.layer_id / MAX_NUM_LAYERS
+            task.completion = n / MAX_NUM_LAYERS
             task.workload_done = 0
             task.workload_percent = 0.0
             
@@ -50,8 +50,10 @@ def do_computing(
                 task.is_done = True
                 rewards += TASK_COMPLETION_REWARD
                 
-        # 记录本步计算的数据量
-        sm.write_workload(m=m, value=task.workload_done)
+        # 更新任务完成度到StateManager
+        sm.write_progress(m=m, value=task.completion)
+        # 记录当前任务累计计算进度（按任务）
+        sm.write_workload(m=m, value=float(task.workload_percent))
         
     return rewards
 
@@ -70,16 +72,16 @@ def do_transferring(
         dst = req.dst
         
         # 获取任务当前层数和位置
-        n = sm.get_progress(m)
         src = sm.get_location(m)
-        
-        # 得到当前需要传输的总数据量
-        target_data_to_send = LAYER_OUTPUT_DATA_SIZE[n]
         
         # 找到对应的任务对象
         task = next((task for task in tasks if task.id == m), None)
         if task is None:
             continue
+        
+        # 得到当前需要传输的总数据量
+        n = task.layer_id
+        target_data_to_send = LAYER_OUTPUT_DATA_SIZE[n]
         
         # 获取当前通信速率
         comm_capacity = sm.get_comm(u=src, v=dst)
@@ -97,7 +99,10 @@ def do_transferring(
         target_list = []
         for m_other in all_ms:
             if users_uv.get(m_other, False) or users_vu.get(m_other, False):
-                layer_idx = int(sm.get_progress(int(m_other)))
+                _t = next((task for task in tasks if task.id == m_other), None)
+                if _t is None:
+                    continue
+                layer_idx = _t.layer_id
                 target_list.append(LAYER_OUTPUT_DATA_SIZE[layer_idx])
         sum_of_data = sum(target_list)
         
@@ -109,8 +114,7 @@ def do_transferring(
 
         # 更新传输进度，位置不变
         task.data_sent += data_this_step
-        task.data_percent = task.data_sent / LAYER_OUTPUT_DATA_SIZE[task.layer_id]
-        # sm.write_size(m=m, value=task.data_sent)
+        task.data_percent = task.data_sent / target_data_to_send
         
         # 加上每次传输惩罚
         rewards += DATA_TRANSFER_PENALTY
@@ -120,7 +124,6 @@ def do_transferring(
             
             # 传输完成，更新任务位置 (write destination coordinates)
             task.plane_at, task.order_at = dst
-            sm.write_location(m=m, value=dst)
             
             # 传输完成，更新任务进度
             task.data_sent = 0.0
@@ -130,8 +133,10 @@ def do_transferring(
             # 加上传输完成奖励
             rewards += TRANS_COMPLETION_REWARD
         
-        # 记录本步传输的数据量
-        sm.write_size(m=m, value=task.data_sent)
+        # 写入按任务的累计传输进度（比例）
+        sm.write_size(m=m, value=float(task.data_percent))
+        # 更新任务位置
+        sm.write_location(m=m, value=(task.plane_at, task.order_at))
 
     return rewards
 

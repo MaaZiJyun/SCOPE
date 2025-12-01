@@ -22,6 +22,7 @@ import { ShakingIcon } from "@/components/ShakingIcon";
 import LinkDataCard from "@/components/LinkDataCard";
 import MissionDataCard from "@/components/MissionDataCard";
 import ProcessBar from "@/components/ProcessBar";
+import { set } from "ol/transform";
 
 interface InventoryProps {
   project: Project;
@@ -30,6 +31,7 @@ interface InventoryProps {
 export const Inventory = ({ project }: InventoryProps) => {
   const { frames, currentFrame } = useFrames();
   const [search, setSearch] = useState("");
+  const [reward, setReward] = useState(0.0);
   const [tab, setTab] = useState("Entities");
   const [satStates, setSatStates] = useState<SatelliteFrame[]>([]);
   const [linkStates, setLinkStates] = useState<LinkFrame[]>([]);
@@ -43,6 +45,7 @@ export const Inventory = ({ project }: InventoryProps) => {
       setStationStates(frame.stations);
       setLinkStates(frame.links);
       setMissionStates(frame.tasks);
+      setReward(frame.reward);
     }
   }, [currentFrame, frames]);
 
@@ -157,6 +160,7 @@ export const Inventory = ({ project }: InventoryProps) => {
         {tab === "Timeline" && (
           <div className="flex flex-col h-full text-xs text-white/80">
             <div className="py-2">
+              <p className="mb-1">Reward: {reward}</p>
               <p className="mb-1">Total Missions: {missionStates.length}</p>
               <p className="mb-1">
                 Completed: {missionStates.filter((m) => m.is_done).length}

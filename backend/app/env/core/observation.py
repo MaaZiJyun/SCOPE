@@ -29,8 +29,8 @@ def get_obs(sm: StateManager, dm: DecisionManager, tm: TaskManager, step: int):
     comm = np.asarray(beta_t.get("comm"), dtype=np.float32)
     location = _pad(beta_t.get("location", None), (MAX_NUM_TASKS, 2), dtype=np.float32)
     progress = _pad(beta_t.get("progress", None), (MAX_NUM_TASKS,), dtype=np.float32)
-    size = _pad(beta_t.get("size", None), (MAX_NUM_TASKS, getattr(sm, "N_MAX", 1)), dtype=np.float32)
-    workload = _pad(beta_t.get("workload", None), (MAX_NUM_TASKS, getattr(sm, "N_MAX", 1)), dtype=np.float32)
+    size = _pad(beta_t.get("size", None), (MAX_NUM_TASKS,), dtype=np.float32)
+    workload = _pad(beta_t.get("workload", None), (MAX_NUM_TASKS,), dtype=np.float32)
 
     obs = {
         "energy": energy,
@@ -42,13 +42,7 @@ def get_obs(sm: StateManager, dm: DecisionManager, tm: TaskManager, step: int):
         "workload": workload,
     }
     
-    # ========= 动作掩码 =========
-    
-    # Build action_mask for all tasks via TaskManager API
-    tasks = tm.get_tasks_at(step)
-    mask = tm.build_action_mask_for_tasks(tasks)  # shape (MAX_NUM_TASKS, 6), dtype=bool
-    # keep action_mask as boolean so Maskable policies and wrappers interpret it correctly
-    obs["action_mask"] = mask.astype(bool)
+    # No action_mask: we return only numeric observation tensors.
 
     # ======== 从决策管理器提取动作空间 α_t ========
     alpha_t = dm.report(step)

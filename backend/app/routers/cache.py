@@ -1,4 +1,5 @@
 import multiprocessing
+import threading
 from app.core.simulation import Simulation
 from app.env.train_and_run import train_model
 from routers.prefix import CACHE_PREFIX
@@ -43,6 +44,15 @@ async def train_model_route(input: ProjectDict):
         p = multiprocessing.Process(target=train_model, args=(input,))
         p.daemon = False
         p.start()
+        # Spawn a lightweight watcher that prints when the process finishes
+        def _on_proc_exit(proc: multiprocessing.Process):
+            try:
+                proc.join()
+                print(f"[Cache] training process finished (pid={proc.pid}, exitcode={proc.exitcode})")
+            except Exception as ex:
+                print(f"[Cache] training watcher error: {ex}")
+
+        threading.Thread(target=_on_proc_exit, args=(p,), daemon=True).start()
         return ApiResponse(status="success", data=f"cache initialized, training started (pid={p.pid})")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"failed to start training process: {e}")

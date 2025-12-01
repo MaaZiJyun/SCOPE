@@ -87,9 +87,8 @@ class LEOEnv(gym.Env):
             "comm": spaces.Box(low=-np.inf, high=np.inf, shape=(p, o, p, o), dtype=np.float32),
             "location": spaces.Box(low=-np.inf, high=np.inf, shape=(m, 2), dtype=np.float32),
             "progress": spaces.Box(low=-np.inf, high=np.inf, shape=(m,), dtype=np.float32),
-            "size": spaces.Box(low=-np.inf, high=np.inf, shape=(m, n), dtype=np.float32),
-            "workload": spaces.Box(low=-np.inf, high=np.inf, shape=(m, n), dtype=np.float32),
-            "action_mask": spaces.MultiBinary((m, 6)),
+            "size": spaces.Box(low=-np.inf, high=np.inf, shape=(m,), dtype=np.float32),
+            "workload": spaces.Box(low=-np.inf, high=np.inf, shape=(m,), dtype=np.float32),
         }
         self.observation_space = spaces.Dict(obs_spaces)
 
@@ -98,21 +97,7 @@ class LEOEnv(gym.Env):
         aligned = {}
         for k, space in self.observation_space.spaces.items():
             wanted_shape = space.shape
-            # special-case action_mask: preserve its boolean dtype and pad/truncate accordingly
-            if k == 'action_mask':
-                arr = np.asarray(obs.get(k, np.zeros(wanted_shape, dtype=bool)), dtype=bool)
-                # ensure 2D mask
-                if arr.ndim == 1:
-                    arr = arr.reshape(wanted_shape)
-                # pad/trim while preserving bool dtype
-                if arr.shape == wanted_shape:
-                    aligned[k] = arr
-                    continue
-                out = np.zeros(wanted_shape, dtype=bool)
-                slices = tuple(slice(0, min(s, t)) for s, t in zip(arr.shape, wanted_shape))
-                out[slices] = arr[tuple(slice(0, s) for s in arr.shape)]
-                aligned[k] = out
-                continue
+            # no special handling for action_mask since it is removed
 
             dtype = getattr(space, 'dtype', np.float32)
             arr = np.asarray(obs.get(k, np.zeros(wanted_shape, dtype=dtype)), dtype=dtype)
@@ -237,6 +222,7 @@ class LEOEnv(gym.Env):
         # update_static_energy(nodes, self.SM)
 
         for task, act in zip(tasks, valid_actions):
+            print(f"[Env] Step {self.frame_counter} Task {task.id} Action {act}")
             
             if task.is_done:
                 continue
@@ -332,15 +318,15 @@ class LEOEnv(gym.Env):
             terminated = True
             terminated_reason = "satellite_energy_depleted"
 
-        if all_tasks_overtimed(all_tasks):
+        if all_tasks_overtimed(tasks):
             action_reward += OVERTIME_PENALTY
             truncated = True
             truncated_reason = "all_tasks_overtimed"
             
-        # elif any_illegal_link(self.SM, self.DM):
-        #     action_reward += WRONG_EDGE_PENALTY
-        #     truncated = True
-        #     truncated_reason = "any_illegal_link"
+        elif any_illegal_link(self.SM, self.DM):
+            action_reward += WRONG_EDGE_PENALTY
+            truncated = True
+            truncated_reason = "any_illegal_link"
 
         # 产出观测和可序列化的 info
         obs, dbg_info = get_obs(sm=self.SM, dm=self.DM, tm=self.TM, step=self.frame_counter)
@@ -350,9 +336,6 @@ class LEOEnv(gym.Env):
             "num_nodes": len(nodes),
             "num_edges": len(edges),
             "num_tasks": n_tasks,
-            # "step": int(self.frame_counter),
-            # "alpha": dbg_info.get("alpha"),
-            # "beta": dbg_info.get("beta"),
             "reward": float(reward),
             "truncated_reason": truncated_reason,
             "terminated_reason": terminated_reason,
@@ -384,11 +367,4 @@ class LEOEnv(gym.Env):
 
         return obs, reward, terminated, truncated, info_serial
 
-    def action_masks(self):
-        """
-        Return the current action mask as a boolean numpy array with shape (M_MAX, 6).
-        This method is used by ActionMasker / MaskablePPO to query invalid action masks.
-        """
-        obs, _ = get_obs(sm=self.SM, dm=self.DM, tm=self.TM, step=self.frame_counter)
-        aligned = self._align_obs(obs)
-        return aligned["action_mask"]
+    # action_masks removed: environment no longer emits or supports action masks.

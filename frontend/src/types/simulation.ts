@@ -150,6 +150,7 @@ export interface RealTime {
   sun: SunFrame;
   earth: EarthFrame;
   tasks: Task[];
+  reward: number;
 }
 
 export interface SunFrame {

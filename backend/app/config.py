@@ -38,7 +38,7 @@ STATIC_ENERGY_COST = -4        # baseline satellite power
 ENERGY_HARVEST_AMOUNT = 120     # solar charging power (120 W)
 
 # TASK PARAMETERS:
-MAX_NUM_TASKS = 10
+MAX_NUM_TASKS = 3
 MAX_TRANS_RATE = 1_000_000_000
 MAX_COMP_RATE = 1 # 1 unit per second
 

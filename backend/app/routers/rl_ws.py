@@ -4,7 +4,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import asyncio
 import json
 import os
-from sb3_contrib import MaskablePPO
+from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import VecNormalize
 from app.env.env import LEOEnv
 from app.models.api_dict.pj import ProjectDict
@@ -14,7 +14,7 @@ router = APIRouter(prefix=SIMULATION_PREFIX, tags=["rl-run"])
 MODEL_PATH = "ai_model/ppo_leoenv"  # adjust if needed
 
 def load_model_and_normalizer(model_path: str):
-    model = MaskablePPO.load(model_path)
+    model = PPO.load(model_path)
     vecnorm = None
     vec_path = model_path + ".vecnormalize"
     if os.path.exists(vec_path):
@@ -42,10 +42,11 @@ def env_to_payload(env: LEOEnv, info: dict) -> dict:
         "satellites": [s.serialize() for s in env.sat],
         "rois": [r.serialize() for r in env.roi],
         "links": env.net.serialize() if env.net else {},
+        # Serialize tasks via JSON to ensure native Python types (avoid np.int64/np.float)
         "tasks": [
-            t.model_dump() for t in env.TM.tasks
+            json.loads(t.model_dump_json()) for t in env.TM.tasks
         ],
-        "info": info
+        "reward": info.get("reward", 0.0),
     }
 
 @router.websocket("/ws/rl")
@@ -124,9 +125,8 @@ async def ws_rl_run(ws: WebSocket):
                 # no control message this iteration — continue
                 pass
 
-            # build action mask and maybe normalized obs for model
+            # maybe normalized obs for model
             if playing:
-                mask = env.action_masks()
                 model_obs = obs
                 if vecnorm:
                     try:
@@ -134,8 +134,8 @@ async def ws_rl_run(ws: WebSocket):
                     except Exception:
                         model_obs = obs
 
-                # predict action (MaskablePPO supports action_masks kw)
-                action, _ = model.predict(model_obs, action_masks=mask, deterministic=True)
+                # predict action (no action_masks)
+                action, _ = model.predict(model_obs, deterministic=True)
                 # ensure correct shape for env.step
                 step_input = action
 
