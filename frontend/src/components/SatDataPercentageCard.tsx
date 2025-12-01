@@ -40,7 +40,7 @@ const SatDataPercentageCard: React.FC<SatDataPercentageCardProps> = ({
   // }
 
   return (
-    <div className={`w-full px-2 ${isUndefined ? "opacity-50" : ""} `}>
+    <div className={`w-full ${isUndefined ? "opacity-50" : ""} `}>
       <ProcessBar progress={batteryPercent} name="Battery" />
     </div>
   );

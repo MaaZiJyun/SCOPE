@@ -54,7 +54,7 @@ function SatDataNode({ sat }: { sat: SatelliteFrame }) {
         emissive={color}
         emissiveIntensity={2}
       />
-      <Html distanceFactor={5000} position={[0, 0, 0]}>
+      {/* <Html distanceFactor={5000} position={[0, 0, 0]}>
         <div
           className="select-none flex flex-col w-20 items-center"
           style={{
@@ -71,7 +71,7 @@ function SatDataNode({ sat }: { sat: SatelliteFrame }) {
           <span>SAT-{sat.id.slice(-6)}</span>
           <span>{ratio.toFixed(4)}</span>
         </div>
-      </Html>
+      </Html> */}
     </mesh>
   );
 }
@@ -105,8 +105,8 @@ function TaskDataNode({ sat, task }: { sat: SatelliteFrame; task: Task }) {
         emissiveIntensity={2}
       />
       <Html distanceFactor={5000} position={[0, 0, 0]}>
-        <div className="select-none flex flex-col w-20 items-center">
-          <span>Task {task.id}</span>
+        <div className="select-none flex flex-col w-12 items-center">
+          <span>Task {task.id} ({task.plane_at}, {task.order_at})</span>
         </div>
       </Html>
     </mesh>
@@ -289,9 +289,9 @@ function DataFlowScene({
             </group>
           );
         })}
-        {stations.map((gs) => (
+        {/* {stations.map((gs) => (
           <GsDataNode key={gs.id} gs={gs} />
-        ))}
+        ))} */}
         {links.map((link, i) => {
           const [start, end] = link.linkPos;
           const startVec = new THREE.Vector3(

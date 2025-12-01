@@ -8,9 +8,23 @@ interface LinkDataCardProps {
 const LinkDataCard: React.FC<LinkDataCardProps> = ({ link }) => {
   return (
     <div className="w-full rounded-lg p-2 shadow border border-white/10 mb-2">
+      
       <div className="flex justify-between mb-1">
+        <span className="text-xs text-white/60">
+          From{" "}
+          <span className="text-white">
+            {link.src.split("-")[1]}, {link.src.split("-")[2]}
+          </span>{" "}
+          To{" "}
+          <span className="text-white">
+            {link.dst.split("-")[1]}, {link.dst.split("-")[2]}
+          </span>
+        </span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-xs text-white/60">Link Type:</span>
         <span
-          className={`text-xs px-4 rounded-xl
+          className={`text-xs px-3 rounded-xl
       ${
         link.type === "ISL"
           ? "border border-purple-600 text-purple-600 bg-purple-800/20"
@@ -18,10 +32,6 @@ const LinkDataCard: React.FC<LinkDataCardProps> = ({ link }) => {
       }`}
         >
           {link.type}
-        </span>
-        <span className="text-xs text-white/60">
-          From <span className="text-white">{link.src.slice(-6)}</span> To{" "}
-          <span className="text-white">{link.dst.slice(-6)}</span>
         </span>
       </div>
       <div className="flex justify-between">

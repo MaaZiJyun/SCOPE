@@ -50,7 +50,7 @@ export default function Player() {
     if (isPlaying && intervalRef.current === null) {
       intervalRef.current = setInterval(() => {
         setCurrentFrame((prev) => (prev + 1 < frames.length ? prev + 1 : prev));
-      }, 100);
+      }, 200);
     }
     // 如果暂停播放
     if (!isPlaying && intervalRef.current) {

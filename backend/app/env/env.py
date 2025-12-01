@@ -61,11 +61,11 @@ class LEOEnv(gym.Env):
         self.sun: SunEntity = None
         
         # Data storages
-        self._roi_datas: List[dict] = []
+        # self._roi_datas: List[dict] = []
         self._gs_datas: List[dict] = []
         self._sat_datas: List[dict] = []
-        self._eth_datas: List[dict] = []
-        self._sun_datas: List[dict] = []
+        # self._eth_datas: List[dict] = []
+        # self._sun_datas: List[dict] = []
         
         # Entities Managers
         self.EG = EntityCol(input)
@@ -149,9 +149,9 @@ class LEOEnv(gym.Env):
         self.sun = objs['sun']
         self._sat_datas = objs['sat_datas']
         self._gs_datas = objs['gs_datas']
-        self._roi_datas = objs['roi_datas']
-        self._eth_datas = objs['eth_data']
-        self._sun_datas = objs['sun_data']
+        # self._roi_datas = objs['roi_datas']
+        # self._eth_datas = objs['eth_data']
+        # self._sun_datas = objs['sun_data']
         self.net = init_network(input, self._sat_datas, self._gs_datas)
         self.period_update()
         
@@ -368,16 +368,28 @@ class LEOEnv(gym.Env):
             self.slot_counter += 1
         else:
             self.slot_counter = 0
-            self.period_counter += 1
-            self.time_recorder = self.datetime_list[self.period_counter + 1]
-            self.period_update()
+            next_period = self.period_counter + 1
+            # If next period would exceed available timeline, truncate episode
+            if next_period >= self.max_period_numbers:
+                truncated = True
+                truncated_reason = "max_period_reached"
+                # clamp to last available period index and keep current time
+                self.period_counter = self.max_period_numbers - 1
+                # ensure time_recorder stays within bounds
+                if self.datetime_list:
+                    self.time_recorder = self.datetime_list[self.period_counter]
+            else:
+                self.period_counter = next_period
+                # update time to the new period boundary
+                self.time_recorder = self.datetime_list[self.period_counter]
+                self.period_update()
 
         return obs, reward, terminated, truncated, info_serial
 
-    def render(self):
-        # from envs.renderer.visualizer import render_satellite_network
-        tasks = self.TM.get_tasks_at(step=self.frame_counter)
-        nodes, edges = self.EG.get_nodes(), self.EG.get_edges()
+    # def render(self):
+    #     # from envs.renderer.visualizer import render_satellite_network
+    #     tasks = self.TM.get_tasks_at(step=self.frame_counter)
+    #     nodes, edges = self.EG.get_nodes(), self.EG.get_edges()
 
     def action_masks(self):
         """

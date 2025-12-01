@@ -21,6 +21,7 @@ import GsDataPercentageCard from "@/components/GsDataPercentageCard";
 import { ShakingIcon } from "@/components/ShakingIcon";
 import LinkDataCard from "@/components/LinkDataCard";
 import MissionDataCard from "@/components/MissionDataCard";
+import ProcessBar from "@/components/ProcessBar";
 
 interface InventoryProps {
   project: Project;
@@ -155,6 +156,19 @@ export const Inventory = ({ project }: InventoryProps) => {
         )}
         {tab === "Timeline" && (
           <div className="flex flex-col h-full text-xs text-white/80">
+            <div className="py-2">
+              <p className="mb-1">Total Missions: {missionStates.length}</p>
+              <p className="mb-1">
+                Completed: {missionStates.filter((m) => m.is_done).length}
+              </p>
+              <ProcessBar
+                progress={
+                  missionStates.filter((m) => m.is_done).length /
+                  missionStates.length
+                }
+                name={"Total Completion"}
+              />
+            </div>
             {missionStates.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <p className="text-gray-04">Simulation has not started</p>
@@ -162,7 +176,10 @@ export const Inventory = ({ project }: InventoryProps) => {
             ) : (
               <div className="overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
                 {missionStates.map((mission, i) => (
-                  <CollapsibleSection title={mission.id.toString()} key={i}>
+                  <CollapsibleSection
+                    title={"Mission NO." + mission.id.toString()}
+                    key={i}
+                  >
                     <MissionDataCard mission={mission} />
                   </CollapsibleSection>
                 ))}
@@ -178,9 +195,9 @@ export const Inventory = ({ project }: InventoryProps) => {
                 placeholder="Search items..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded text-sm bg-gray-07 px-3 py-2 text-gray-02 placeholder-gray-02 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                className="w-full rounded text-sm bg-gray-07 px-2 py-1 text-gray-02 placeholder-gray-02 focus:outline-none focus:ring-2 focus:ring-gray-300"
               />
-              <MagnifyingGlassIcon className="w-4 h-4 absolute right-3 top-2.5 text-gray-04 pointer-events-none" />
+              <MagnifyingGlassIcon className="w-4 h-4 absolute right-3 top-1.5 text-gray-04 pointer-events-none" />
             </div>
             <div className="overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
               <CollapsibleSection title={project.constellation.name}>
@@ -281,8 +298,8 @@ function SatelliteItem({
   sat: Satellite;
   satFrame: SatelliteFrame | undefined;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const [folded, setFolded] = useState(false);
+  // const [expanded, setExpanded] = useState(false);
+  const [folded, setFolded] = useState(true);
   // Remove useState for satStates, just use satFrame directly
   return (
     <div className="select-none relative ml-4 cursor-pointer">
@@ -299,7 +316,7 @@ function SatelliteItem({
           />
           <span>{sat.name}</span>
         </div>
-        <div
+        {/* <div
           onMouseOver={() => setExpanded(true)}
           onMouseLeave={() => setExpanded(false)}
         >
@@ -313,12 +330,22 @@ function SatelliteItem({
               <InfoItem label="Order" value={sat.order} />
             </div>
           )}
-        </div>
+        </div> */}
       </div>
       {folded && (
-        <div className="mt-1 mb-4">
-          <SatDataPercentageCard key={sat.id} sat={satFrame} />
-        </div>
+        <>
+          <div className="mt-1 mb-2 px-2">
+            <InfoItem label="ID" value={sat.id} />
+            {/* <InfoItem label="Name" value={sat.name} /> */}
+            <InfoItem label="Plane" value={sat.plane} />
+            <InfoItem label="Order" value={sat.order} />
+            {/* <SatDataPercentageCard key={sat.id} sat={satFrame} /> */}
+            <ProcessBar
+              progress={satFrame ? satFrame.batteryPercent / 100 : 0}
+              name={"Battery Level"}
+            />
+          </div>
+        </>
       )}
     </div>
   );

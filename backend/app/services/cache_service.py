@@ -58,19 +58,31 @@ def check_all_cache_integrity(project_id: str, constellation_id: str) -> dict:
     return result
 
 def initial_cache_setup(input: ProjectDict) -> ProjectDict:
+    print("Initial cache setup", input.experiment.end_time)
     t_start = normalize_time(input.experiment.start_time)
-    t_dt = t_start
-    dt_max = timedelta(hours=2)
+    if input.experiment.end_time is None or input.experiment.end_time < input.experiment.start_time:
+        t_end = t_start + timedelta(hours=2)
+    else:
+        t_end = normalize_time(input.experiment.end_time)
+    
+    # t_dt = t_start
+    max_simulation_duration = t_end - t_start
 
     if input.experiment.time_slot:
         dt_slot = timedelta(seconds=input.experiment.time_slot)
+    else:
+        dt_slot = timedelta(seconds=30)  # default 30s time slot
 
-    number_of_steps = int(dt_max // dt_slot)
+    number_of_steps = int(max_simulation_duration // dt_slot)
     datetime_list = [
         t_start + i * dt_slot for i in range(number_of_steps)
     ]
     
     times = to_times(datetime_list)
+    
+    print(f"  - Total simulation duration: {max_simulation_duration}, steps: {number_of_steps}")
+    print(f"  - Time slot: {dt_slot}, from {t_start} to {t_end}")
+    print(f"  - Preparing cache data {times[0]} ~ {times[-1]} ...")
     
     sat, sat_datas = preparation_of_satellite(
         input=input,
