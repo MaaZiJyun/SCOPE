@@ -45,7 +45,7 @@ export const Inventory = ({ project }: InventoryProps) => {
       setStationStates(frame.stations);
       setLinkStates(frame.links);
       setMissionStates(frame.tasks);
-      setReward(frame.reward);
+      setReward(frame.info.reward);
     }
   }, [currentFrame, frames]);
 
@@ -160,7 +160,7 @@ export const Inventory = ({ project }: InventoryProps) => {
         {tab === "Timeline" && (
           <div className="flex flex-col h-full text-xs text-white/80">
             <div className="py-2">
-              <p className="mb-1">Reward: {reward}</p>
+              <p className="mb-1">Reward: {reward.toFixed(2)}</p>
               <p className="mb-1">Total Missions: {missionStates.length}</p>
               <p className="mb-1">
                 Completed: {missionStates.filter((m) => m.is_done).length}

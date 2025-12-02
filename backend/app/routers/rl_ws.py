@@ -46,7 +46,7 @@ def env_to_payload(env: LEOEnv, info: dict) -> dict:
         "tasks": [
             json.loads(t.model_dump_json()) for t in env.TM.tasks
         ],
-        "reward": info.get("reward", 0.0),
+        "info": info,
     }
 
 @router.websocket("/ws/rl")

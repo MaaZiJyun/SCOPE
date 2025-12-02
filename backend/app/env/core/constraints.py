@@ -14,7 +14,7 @@ from app.entities.satellite_entity import SatelliteEntity
 def all_tasks_overtimed(tasks: List[Task]):
     result = False
     if len(tasks) > 0:
-        result = all((t.t_end - t.t_start) > STEP_PER_SLOT for t in tasks)
+        result = all((t.t_end - t.t_start) > 2*STEP_PER_SLOT for t in tasks)
     return result
 
 def any_illegal_link(sm: StateManager, dm: DecisionManager, eps: float = 1e-9):

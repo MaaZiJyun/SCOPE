@@ -13,6 +13,7 @@ import { useFrames } from "../workspace/useFramesContext";
 import VoidPage from "@/components/VoidPage";
 import { PauseIcon, PlayIcon, StopIcon } from "@heroicons/react/24/outline";
 import ClockWidget from "@/components/ClockWidget";
+import { set } from "ol/transform";
 
 interface DataPoint {
   time: number;
@@ -175,6 +176,7 @@ function DataFlowScene({
           <SatDataNode key={sat.id} sat={sat} />
         ))}
         {tasks.map((t) => {
+          if (t.is_done) return null;
           const sat = satellites.find(
             (s) => s.plane === t.plane_at && s.order === t.order_at
           );
@@ -257,7 +259,12 @@ function DataFlowScene({
                   <cylinderGeometry
                     args={[cylinderRadius, cylinderRadius, cylHeight, 12]}
                   />
-                  <meshStandardMaterial color={color} emissive={color} transparent opacity={trans} />
+                  <meshStandardMaterial
+                    color={color}
+                    emissive={color}
+                    transparent
+                    opacity={trans}
+                  />
                 </mesh>
 
                 {/* 箭头锥体，放在 cylinder 末端外侧 */}
@@ -266,7 +273,12 @@ function DataFlowScene({
                   quaternion={q}
                 >
                   <coneGeometry args={[coneRadius, coneHeight, 8]} />
-                  <meshStandardMaterial color={color} emissive={color} transparent opacity={trans} />
+                  <meshStandardMaterial
+                    color={color}
+                    emissive={color}
+                    transparent
+                    opacity={trans}
+                  />
                 </mesh>
               </group>
             );
@@ -339,6 +351,11 @@ export default function DataFlowPanel() {
   const [linkStates, setLinkStates] = useState<LinkFrame[]>([]);
   const [taskStates, setTaskStates] = useState<Task[]>([]);
   const [stationStates, setStationStates] = useState<StationFrame[]>([]);
+  const [reward, setReward] = useState<number>(0);
+  const [truncatedReason, setTruncatedReason] = useState<string>("");
+  const [terminatedReason, setTerminatedReason] = useState<string>("");
+  const [isTruncated, setIsTruncated] = useState<boolean>(false);
+  const [isTerminated, setIsTerminated] = useState<boolean>(false);
 
   // 每次 currentFrame 变动，更新显示内容
   useEffect(() => {
@@ -349,6 +366,12 @@ export default function DataFlowPanel() {
       setStationStates(frame.stations);
       setTaskStates(frame.tasks);
       setTimestamp(frame.time);
+      // set info
+      setReward(frame.info.reward);
+      setTruncatedReason(frame.info.truncated_reason);
+      setTerminatedReason(frame.info.terminated_reason);
+      setIsTruncated(frame.info.is_truncated);
+      setIsTerminated(frame.info.is_terminated);
     }
   }, [currentFrame, frames]);
 
@@ -357,25 +380,29 @@ export default function DataFlowPanel() {
   }
 
   return (
-    <div className="flex flex-col h-full w-full py-12 px-6 bg-black text-white">
+    <div className="flex flex-col h-full w-full bg-black text-white">
       <div className="absolute top-10 right-0 z-5">
         <ClockWidget
           timeSlot={frames[currentFrame].currentFrame}
           time={frames[currentFrame].time}
         />
       </div>
-      {/* <LineChart width={600} height={300} data={data}>
-        <CartesianGrid stroke="#eee" />
-        <XAxis dataKey="time" />
-        <YAxis domain={[0, 1]} />
-        <Tooltip />
-        <Line
-          type="monotone"
-          dataKey="value"
-          stroke="#8884d8"
-          isAnimationActive={false}
-        />
-      </LineChart> */}
+      {(isTerminated || isTruncated) && (
+        <div className="absolute flex w-full h-full items-center justify-center bg-white/20">
+          <div className="text-center text-white">
+            <div className="text-xl font-light mb-4">
+              {isTerminated
+                ? `Simulation Terminated: ${terminatedReason.toUpperCase()}`
+                : isTruncated
+                ? `Simulation Truncated: ${truncatedReason.toUpperCase()}`
+                : ""}
+            </div>
+            <div className="text-xl font-light">
+              Reward Collected: {reward.toFixed(2)}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex w-full h-full my-4">
         <DataFlowScene
           satellites={satStates}

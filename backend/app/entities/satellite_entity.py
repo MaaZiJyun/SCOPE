@@ -104,6 +104,8 @@ class SatelliteEntity():
             velocity=self.velocity_vector,
             mu_t=1 if self.is_charging else 0
         )
+        # print(f"Satellite {self.id} charging for dt={dt}s: gain={gain:.2f}Wh")
+        # 44.25Wh左右
         self.battery = min(self.battery + gain, BATTERY_MAX)
         self.battery_ratio = (self.battery / BATTERY_MAX)
         

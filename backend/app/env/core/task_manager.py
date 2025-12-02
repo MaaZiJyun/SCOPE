@@ -72,31 +72,6 @@ class TaskManager:
         # --- Case 4: idle ---
         return "idle"
 
-    def validate_action(self, task: Task, act: int):
-        """
-        Returns (valid: bool, penalty: float, truncated: bool, reason: str)
-        """
-        
-        task_state = self.task_state(task)
-        # if task.is_done:
-        # # only no-op is allowed
-        #     return (act == 0, WRONG_ACT_PENALTY, True, "done_task_illegal_action")
-
-        if task_state == "under_processing":
-            allowed = {0, 5}
-            if act not in allowed:
-                return (False, INTERRUPTION_PENALTY, True, "processing_interrupted")
-
-        elif task_state == "under_transferring":
-            allowed = {0, task.acted}
-            if act not in allowed:
-                return (False, INTERRUPTION_PENALTY, True, "transfer_interrupted")
-
-        else:  # idle
-            allowed = {0, 1, 2, 3, 4, 5}
-
-        return (True, 0.0, False, "None")
-
 
 
 

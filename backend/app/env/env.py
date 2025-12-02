@@ -1,13 +1,16 @@
 import numpy as np
+import logging
+import os
 from app.models.api_dict.pj import ProjectDict
 from app.core.initialisation import build_static_objects, init_network, load_input_metadata
+from app.env.vars.task import Task
 import gymnasium as gym
 from gymnasium import spaces
 from typing import List
 from app.env.io.decision_manager import DecisionManager
 from app.env.io.state_manager import StateManager
 from app.env.core.constraints import all_tasks_completed, all_tasks_overtimed, any_illegal_link, any_satellite_depleted
-from app.config import ALL_TASK_COMPLETION_REWARD, ENERGY_DROWN_PENALTY, INTERRUPTION_PENALTY, LAYER_OUTPUT_DATA_SIZE, LAYER_PROCESS_STEP_COST, NO_ACTION_PENALTY, MAX_NUM_TASKS, OVERTIME_PENALTY, OVERTIME_PENALTY, STEP_PER_SLOT, T_SLOT, T_STEP, TASK_COMPLETION_REWARD, TRANSMIT_ENERGY_COST, WRONG_EDGE_PENALTY
+from app.config import ALL_TASK_COMPLETION_REWARD, ENERGY_DROWN_PENALTY, INTERRUPTION_PENALTY, LAYER_OUTPUT_DATA_SIZE, LAYER_PROCESS_STEP_COST, NO_ACTION_PENALTY, MAX_NUM_TASKS, OVERTIME_PENALTY, STEP_PER_SLOT, T_SLOT, T_STEP, TASK_COMPLETION_REWARD, WRONG_EDGE_PENALTY, REPEAT_MOVE_THRESHOLD, REPEAT_MOVE_PENALTY_BASE, DEBUG, FIRST_COMPUTE_BONUS, REPEAT_MOVE_PENALTY_CAP, LOG_OUTPUT, SUSTAINED_COMPUTE_BONUS, BASE_MOVE_PENALTY
 from app.env.core.entity_col import EntityCol
 from app.env.core.task_manager import TaskManager
 from app.env.vars.request import CompReq, TransReq
@@ -29,6 +32,16 @@ class LEOEnv(gym.Env):
 
     def __init__(self, input: ProjectDict):
         super().__init__()
+        # Setup logging
+        self.logger = logging.getLogger("LEOEnv")
+        self.logger.setLevel(logging.DEBUG if DEBUG else logging.INFO)
+        if not self.logger.handlers:
+            os.makedirs(LOG_OUTPUT, exist_ok=True)
+            fh = logging.FileHandler(os.path.join(LOG_OUTPUT, "env.log"))
+            fh.setLevel(logging.DEBUG if DEBUG else logging.INFO)
+            fmt = logging.Formatter(fmt="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+            fh.setFormatter(fmt)
+            self.logger.addHandler(fh)
         
         self.input = input
         
@@ -71,6 +84,9 @@ class LEOEnv(gym.Env):
         # Attributes Managers
         self.SM = StateManager(self.EG.N_PLANE, self.EG.N_SAT)
         self.DM = DecisionManager(self.EG.N_PLANE, self.EG.N_SAT)
+
+        # 重复移动计数 (按任务 id)
+        self.repeat_move_counts = {}
         
         # 初始化基本参数
         self.action_space = spaces.MultiDiscrete([6] * MAX_NUM_TASKS)
@@ -179,6 +195,7 @@ class LEOEnv(gym.Env):
         self.SM.reset()
         self.DM.reset()
         self.TM.reset()
+        self.repeat_move_counts = {}
         
         self.SM.setup(
             all_nodes=all_nodes,
@@ -218,39 +235,91 @@ class LEOEnv(gym.Env):
 
         assert len(valid_actions) == n_tasks
 
-        # update energy for all nodes by default
-        # update_static_energy(nodes, self.SM)
-
         for task, act in zip(tasks, valid_actions):
-            print(f"[Env] Step {self.frame_counter} Task {task.id} Action {act}")
+            if DEBUG and task.id == 0:
+                state0 = self.TM.task_state(task)
+                allowed0 = self.get_allowed_actions(task)
+                self.logger.debug(
+                    f"[Task0] pre-validate: acted={task.acted} state={state0} allowed={sorted(list(allowed0))} "
+                    f"workload_done={task.workload_done} data_sent={task.data_sent} t_start={task.t_start} t_end={task.t_end}"
+                )
             
             if task.is_done:
                 continue
             
             p, o = task.plane_at, task.order_at
-            
+
             # node = self.EG.nodes.get((p, o))
             node = next((s for s in self.sat if s.plane == p and s.order == o), None)
             if node is None:
                 continue
             
             # validate action; validate_action returns (valid: bool, penalty: float, truncated: bool, reason: str)
-            is_valid, penalty, is_truncated, truncated_reason_local = self.TM.validate_action(task, act)
+            is_valid, penalty, is_truncated, truncated_reason_local = self.validate_action(task, act)
             if not is_valid:
-                # apply penalty for invalid action, optionally mark truncation, and skip applying the action
+                # apply penalty for invalid action
                 action_reward += penalty
-                if is_truncated:
-                    truncated = True
-                    truncated_reason = truncated_reason_local
-                # still advance task end time but do not overwrite task.acted
+                if DEBUG:
+                    self.logger.debug(f"[InvalidAction] Task {task.id} act={act} state_penalty={penalty} reason={truncated_reason_local}")
+
+                # Remap to a legal fallback to keep learning signal dense
+                allowed = self.get_allowed_actions(task)
+
+                # Prefer compute (5) if allowed and not occupied
+                remapped_act = None
+                if 5 in allowed and not self.DM.is_po_occupied(p=p, o=o):
+                    workload = LAYER_PROCESS_STEP_COST[task.layer_id]
+                    self.DM.write_pi(p=p, o=o, m=task.id, value=True)
+                    node.is_processing = True
+                    comp_reqs.append(
+                        CompReq(
+                            task_id=task.id,
+                            node_id=(p, o),
+                            layer_id=task.layer_id,
+                            target_workload=workload,
+                            workload_done=task.workload_done,
+                        )
+                    )
+                    if task.acted in [0, 1, 2, 3, 4]:
+                        action_reward += FIRST_COMPUTE_BONUS
+                    remapped_act = 5
+                else:
+                    # Fallback to no-op if compute isn't available; this stabilizes learning
+                    action_reward += NO_ACTION_PENALTY
+                    remapped_act = 0
+
                 task.t_end += 1
-                break
+                task.acted = remapped_act
+                # Reset repeat counter when not moving
+                if remapped_act not in [1, 2, 3, 4]:
+                    self.repeat_move_counts[task.id] = 0
+                continue
 
             # action is valid -> apply effects
             if act == 0:
                 action_reward += NO_ACTION_PENALTY
 
             elif act in [1, 2, 3, 4]:
+                # 基础移动惩罚（降低无意义移动的吸引力）
+                action_reward += BASE_MOVE_PENALTY
+
+                # 连续移动惩罚逻辑
+                prev_act = task.acted
+                if prev_act in [1,2,3,4]:
+                    self.repeat_move_counts[task.id] = self.repeat_move_counts.get(task.id, 0) + 1
+                else:
+                    self.repeat_move_counts[task.id] = 1
+
+                # 超阈值惩罚 (线性随超出次数增长)
+                if self.repeat_move_counts[task.id] > REPEAT_MOVE_THRESHOLD:
+                    excess = self.repeat_move_counts[task.id] - REPEAT_MOVE_THRESHOLD
+                    penalty = REPEAT_MOVE_PENALTY_BASE * excess
+                    # Cap the per-step repeat move penalty to avoid runaway negatives
+                    if penalty < REPEAT_MOVE_PENALTY_CAP:
+                        penalty = REPEAT_MOVE_PENALTY_CAP
+                    action_reward += penalty
+                    if DEBUG:
+                        self.logger.debug(f"[Penalty] Task {task.id} repeat move count={self.repeat_move_counts[task.id]} penalty={penalty:.3f}")
 
                 # movement actions
                 if act == 1:
@@ -262,9 +331,9 @@ class LEOEnv(gym.Env):
                 else:
                     dst = (p, (o - 1) % self.EG.N_SAT)
 
-                self.DM.write_rho(u=(p, o), v=dst, m=task.id, value=True)
-
                 if ((p, o), dst) in self.EG.edges_dict:
+                    # only record legal link usage into DM
+                    self.DM.write_rho(u=(p, o), v=dst, m=task.id, value=True)
                     data_bits = LAYER_OUTPUT_DATA_SIZE[task.layer_id]
                     node.is_communicating_isl = True
                     trans_reqs.append(
@@ -277,15 +346,39 @@ class LEOEnv(gym.Env):
                         )
                     )
                 else:
+                    # illegal edge: apply penalty, and try to remap to compute if allowed
                     action_reward += WRONG_EDGE_PENALTY
-                    truncated = True
-                    truncated_reason = "action_on_nonexistent_edge"
-                    break
+                    # 重置该任务的重复移动计数，避免惩罚爆炸
+                    self.repeat_move_counts[task.id] = 0
+                    if DEBUG:
+                        self.logger.debug(f"[IllegalLink] Task {task.id} src={(p,o)} dst={dst} penalty={WRONG_EDGE_PENALTY}")
+                    allowed = self.get_allowed_actions(task)
+                    if 5 in allowed and not self.DM.is_po_occupied(p=p, o=o):
+                        workload = LAYER_PROCESS_STEP_COST[task.layer_id]
+                        self.DM.write_pi(p=p, o=o, m=task.id, value=True)
+                        node.is_processing = True
+                        comp_reqs.append(
+                            CompReq(
+                                task_id=task.id,
+                                node_id=(p, o),
+                                layer_id=task.layer_id,
+                                target_workload=workload,
+                                workload_done=task.workload_done,
+                            )
+                        )
+                        if task.acted in [0, 1, 2, 3, 4]:
+                            action_reward += FIRST_COMPUTE_BONUS
+                        # mark effective action as compute for bookkeeping
+                        act = 5
+                    else:
+                        # fallback to no-op once for stability (avoid stacking penalties)
+                        act = 0
+                        action_reward += NO_ACTION_PENALTY
+                    # proceed without 'continue' so that acted/t_end update below applies
 
             elif act == 5:
-                # is_occupied = self.DM.is_po_occupied(p=p, o=o)
-                _sat = next((s for s in self.sat if s.plane == p and s.order == o), None)
-                is_occupied = _sat.is_processing if _sat else False
+                # 使用 DecisionManager 的占用检查（按步重置，更适合并发约束）
+                is_occupied = self.DM.is_po_occupied(p=p, o=o)
                 if not is_occupied:
                     workload = LAYER_PROCESS_STEP_COST[task.layer_id]
                     self.DM.write_pi(p=p, o=o, m=task.id, value=True)
@@ -299,20 +392,29 @@ class LEOEnv(gym.Env):
                             workload_done=task.workload_done,
                         )
                     )
+                    # 从 idle 或 transferring 切到 compute 时给一次额外奖励
+                    if task.acted in [0,1,2,3,4]:
+                        action_reward += FIRST_COMPUTE_BONUS
+                    else:
+                        # 连续计算时的持续奖励，鼓励坚持计算
+                        action_reward += SUSTAINED_COMPUTE_BONUS
                 else:
                     action_reward += NO_ACTION_PENALTY
 
             task.t_end += 1
             task.acted = act
 
+            # 非移动动作重置计数
+            if act not in [1,2,3,4]:
+                self.repeat_move_counts[task.id] = 0
+
         # 执行传输与计算
         action_reward += do_transferring(tasks=tasks, trans_reqs=trans_reqs, sm=self.SM, dm=self.DM)
         action_reward += do_computing(tasks=tasks, comp_reqs=comp_reqs, sm=self.SM, dm=self.DM)
         do_energy_updating(slot=T_STEP, nodes=nodes, sm=self.SM)
 
-        # 计算目标与最终 reward
+        # 计算目标向导奖励（与动作奖励合并前先计算，以便最终汇总）
         aim_reward = settle_reward(delay_penalty=compute_delay_penalty(tasks), energy_penalty=compute_energy_penalty(nodes))
-        reward = action_reward + aim_reward
 
         # 终止/截断判定
         if all_tasks_completed(all_tasks):
@@ -334,6 +436,13 @@ class LEOEnv(gym.Env):
             action_reward += WRONG_EDGE_PENALTY
             truncated = True
             truncated_reason = "any_illegal_link"
+
+        # 终端/截断调整后，合并最终奖励
+        reward = action_reward + aim_reward
+        if DEBUG:
+            self.logger.debug(f"[StepSummary] frame={self.frame_counter} action_reward={action_reward:.3f} aim_reward={aim_reward:.3f} total={reward:.3f}")
+            if self.repeat_move_counts:
+                self.logger.debug(f"[RepeatMoves] {self.repeat_move_counts}")
 
         # 产出观测和可序列化的 info
         obs, dbg_info = get_obs(sm=self.SM, dm=self.DM, tm=self.TM, step=self.frame_counter)
@@ -372,6 +481,52 @@ class LEOEnv(gym.Env):
                 self.time_recorder = self.datetime_list[self.period_counter]
                 self.period_update()
 
-        return obs, reward, terminated, truncated, info_serial
+        return self._align_obs(obs), reward, terminated, truncated, info_serial
 
     # action_masks removed: environment no longer emits or supports action masks.
+    def get_valid_dirs(self, task: Task) -> List[int]:
+        p, o = task.plane_at, task.order_at
+        act = task.acted
+        
+        valid_dirs = []
+        
+        for a in [1, 2, 3, 4]:
+            if act == 1:
+                dst = ((p + 1) % self.EG.N_PLANE, o)
+            elif act == 2:
+                dst = ((p - 1) % self.EG.N_PLANE, o)
+            elif act == 3:
+                dst = (p, (o + 1) % self.EG.N_SAT)
+            else:
+                dst = (p, (o - 1) % self.EG.N_SAT)
+                
+            if ((p, o), dst) in self.EG.edges_dict:
+                valid_dirs.append(a)
+                
+        return valid_dirs
+    
+    def get_allowed_actions(self, task: Task):
+        """Return the allowed action set for the given task based on its state."""
+        state = self.TM.task_state(task)
+        valid_dirs = self.get_valid_dirs(task)
+        if state == "under_processing":
+            return {0, 5}
+        if state == "under_transferring":
+            # allow no-op, continue same direction, or switch to compute
+            return {0, task.acted, 5}
+        if state == "done":
+            return {0}
+        # idle
+        return {0, *valid_dirs, 5}
+
+    def validate_action(self, task: Task, act: int):
+        """
+        Returns (valid: bool, penalty: float, truncated: bool, reason: str)
+        """
+        allowed = self.get_allowed_actions(task)
+        if act not in allowed:
+            reason = "processing_interrupted" if self.TM.task_state(task) == "under_processing" else (
+                "transfer_interrupted" if self.TM.task_state(task) == "under_transferring" else "illegal_action"
+            )
+            return (False, INTERRUPTION_PENALTY, True, reason)
+        return (True, 0.0, False, "None")

@@ -52,6 +52,9 @@ def train_model(input: ProjectDict):
     }
 
     # Use standard PPO (no action masks)
+    # Increase PPO entropy coefficient to promote exploration and help discover compute action
+    # Updated ent_coef from 0.03 to 0.05
+    
     model = PPO(
         policy=POLICY_CHOICE,
         env=venv,
@@ -60,7 +63,7 @@ def train_model(input: ProjectDict):
         n_steps=2048,
         batch_size=64,
         n_epochs=10,
-        ent_coef=0.01,
+        ent_coef=0.05,
         vf_coef=0.5,
         policy_kwargs=policy_kwargs,
     )

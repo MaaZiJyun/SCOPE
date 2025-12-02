@@ -3,7 +3,7 @@ from app.env.io.state_manager import StateManager
 from app.entities.satellite_entity import SatelliteEntity
 from typing import List
 from app.env.io.decision_manager import DecisionManager
-from app.config import DATA_COMPUTE_REWARD, DATA_TRANSFER_PENALTY, DEBUG, LAYER_COMPLETION_REWARD, LAYER_OUTPUT_DATA_SIZE, LAYER_PROCESS_STEP_COST, MAX_NUM_LAYERS, STEP_PER_SECOND, T_STEP, TASK_COMPLETION_REWARD, TASK_COMPLETION_REWARD, TRANS_COMPLETION_REWARD
+from app.config import DATA_COMPUTE_REWARD, DATA_TRANSFER_PENALTY, DEBUG, LAYER_COMPLETION_REWARD, LAYER_OUTPUT_DATA_SIZE, LAYER_PROCESS_STEP_COST, MAX_NUM_LAYERS, STEP_PER_SECOND, T_STEP, TASK_COMPLETION_REWARD, TASK_COMPLETION_REWARD, TRANS_COMPLETION_REWARD, DELTA_WORKLOAD_REWARD
 from app.env.vars.request import CompReq, TransReq
 from app.env.vars.task import Task
 
@@ -29,13 +29,22 @@ def do_computing(
         n = task.layer_id
         target = LAYER_PROCESS_STEP_COST[n]
         
-        # 更新计算进度
+        # 更新计算进度 (记录前进度以计算增量奖励)
+        prev_workload_percent = task.workload_percent
         task.workload_done += 1
         task.workload_percent = task.workload_done / target
         # 奖励塑形：每步计算给予微奖励，降低纯稀疏奖励带来的探索困难
         
         # 加上每次计算奖励
         rewards += DATA_COMPUTE_REWARD
+
+        # 增量工作量奖励 (按本步进度提升比例乘以系数)
+        delta = task.workload_percent - prev_workload_percent
+        if delta > 0:
+            inc_reward = DELTA_WORKLOAD_REWARD * delta
+            rewards += inc_reward
+            if DEBUG:
+                print(f"[Reward] Task {m} workload delta {delta:.4f} inc {inc_reward:.4f}")
 
         # 检查是否完成计算
         if task.workload_done >= target:
@@ -123,7 +132,7 @@ def do_transferring(
         task.data_percent = task.data_sent / target_data_to_send
         
         # 加上每次传输惩罚
-        rewards += DATA_TRANSFER_PENALTY
+        # rewards += DATA_TRANSFER_PENALTY
 
         # 检查是否完成传输
         if task.data_sent >= target_data_to_send:

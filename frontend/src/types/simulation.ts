@@ -30,7 +30,7 @@ export interface Message {
   status: number;
 }
 
-export interface Task{
+export interface Task {
   id: number;
   layer_id: number;
   completion: number;
@@ -135,6 +135,17 @@ export interface ROIFrame {
   centreLoc: LatLon;
 }
 
+export interface RLInfo {
+  num_nodes: number,
+  num_edges: number,
+  num_tasks: number,
+  reward: number,
+  truncated_reason: string,
+  terminated_reason: string,
+  is_truncated: boolean,
+  is_terminated: boolean,
+}
+
 export interface RealTime {
   time: string;
   currentFrame: number;
@@ -150,7 +161,8 @@ export interface RealTime {
   sun: SunFrame;
   earth: EarthFrame;
   tasks: Task[];
-  reward: number;
+  info: RLInfo;
+
 }
 
 export interface SunFrame {
