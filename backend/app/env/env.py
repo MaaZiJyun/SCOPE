@@ -268,18 +268,6 @@ class LEOEnv(gym.Env):
                 # Prefer compute (5) if allowed and not occupied
                 remapped_act = None
                 if 5 in allowed and not self.DM.is_po_occupied(p=p, o=o):
-                    workload = LAYER_PROCESS_STEP_COST[task.layer_id]
-                    self.DM.write_pi(p=p, o=o, m=task.id, value=True)
-                    node.is_processing = True
-                    comp_reqs.append(
-                        CompReq(
-                            task_id=task.id,
-                            node_id=(p, o),
-                            layer_id=task.layer_id,
-                            target_workload=workload,
-                            workload_done=task.workload_done,
-                        )
-                    )
                     if task.acted in [0, 1, 2, 3, 4]:
                         action_reward += FIRST_COMPUTE_BONUS
                     remapped_act = 5
@@ -288,12 +276,13 @@ class LEOEnv(gym.Env):
                     action_reward += NO_ACTION_PENALTY
                     remapped_act = 0
 
-                task.t_end += 1
-                task.acted = remapped_act
+                # task.t_end += 1
+                # task.acted = remapped_act
+                act = remapped_act
                 # Reset repeat counter when not moving
                 if remapped_act not in [1, 2, 3, 4]:
                     self.repeat_move_counts[task.id] = 0
-                continue
+                # continue
 
             # action is valid -> apply effects
             if act == 0:
@@ -310,7 +299,6 @@ class LEOEnv(gym.Env):
                 else:
                     self.repeat_move_counts[task.id] = 1
 
-                # 超阈值惩罚 (线性随超出次数增长)
                 if self.repeat_move_counts[task.id] > REPEAT_MOVE_THRESHOLD:
                     excess = self.repeat_move_counts[task.id] - REPEAT_MOVE_THRESHOLD
                     penalty = REPEAT_MOVE_PENALTY_BASE * excess
@@ -486,16 +474,15 @@ class LEOEnv(gym.Env):
     # action_masks removed: environment no longer emits or supports action masks.
     def get_valid_dirs(self, task: Task) -> List[int]:
         p, o = task.plane_at, task.order_at
-        act = task.acted
         
         valid_dirs = []
         
         for a in [1, 2, 3, 4]:
-            if act == 1:
+            if a == 1:
                 dst = ((p + 1) % self.EG.N_PLANE, o)
-            elif act == 2:
+            elif a == 2:
                 dst = ((p - 1) % self.EG.N_PLANE, o)
-            elif act == 3:
+            elif a == 3:
                 dst = (p, (o + 1) % self.EG.N_SAT)
             else:
                 dst = (p, (o - 1) % self.EG.N_SAT)
