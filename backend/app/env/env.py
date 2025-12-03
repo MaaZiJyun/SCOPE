@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import logging
 import os
@@ -10,7 +11,7 @@ from typing import List
 from app.env.io.decision_manager import DecisionManager
 from app.env.io.state_manager import StateManager
 from app.env.core.constraints import all_tasks_completed, all_tasks_overtimed, any_illegal_link, any_satellite_depleted
-from app.config import ALL_TASK_COMPLETION_REWARD, ENERGY_DROWN_PENALTY, INTERRUPTION_PENALTY, LAYER_OUTPUT_DATA_SIZE, LAYER_PROCESS_STEP_COST, NO_ACTION_PENALTY, MAX_NUM_TASKS, OVERTIME_PENALTY, STEP_PER_SLOT, T_SLOT, T_STEP, TASK_COMPLETION_REWARD, WRONG_EDGE_PENALTY, REPEAT_MOVE_THRESHOLD, REPEAT_MOVE_PENALTY_BASE, DEBUG, FIRST_COMPUTE_BONUS, REPEAT_MOVE_PENALTY_CAP, LOG_OUTPUT, SUSTAINED_COMPUTE_BONUS, BASE_MOVE_PENALTY
+from app.config import ALL_TASK_COMPLETION_REWARD, ENERGY_DROWN_PENALTY, INTERRUPTION_PENALTY, LAYER_OUTPUT_DATA_SIZE, NO_ACTION_PENALTY, MAX_NUM_TASKS, OVERTIME_PENALTY, WRONG_EDGE_PENALTY, REPEAT_MOVE_THRESHOLD, REPEAT_MOVE_PENALTY_BASE, DEBUG, FIRST_COMPUTE_BONUS, REPEAT_MOVE_PENALTY_CAP, LOG_OUTPUT, SUSTAINED_COMPUTE_BONUS, BASE_MOVE_PENALTY
 from app.env.core.entity_col import EntityCol
 from app.env.core.task_manager import TaskManager
 from app.env.vars.request import CompReq, TransReq
@@ -49,10 +50,13 @@ class LEOEnv(gym.Env):
         self.max_simulation_period: timedelta = timedelta(hours=2)  # 最大仿真时间
         self.t_end: datetime = self.t_start + self.max_simulation_period
         
-        self.period: timedelta = timedelta(seconds=T_SLOT)  # 时间步长，默认30秒
-        self.max_period_numbers: int = int(self.max_simulation_period.seconds // self.period.seconds)
-        self.max_slot_number: int = STEP_PER_SLOT
-        self.slot: timedelta = timedelta(seconds=T_STEP)  # 时间步长，默认1秒
+        self.period_in_num: float = 30
+        self.period: timedelta = timedelta(seconds=self.period_in_num)  # 时间步长，默认30秒
+        self.max_period_numbers: int = math.ceil(self.max_simulation_period.total_seconds() / self.period_in_num)
+        
+        self.slot_in_num: float = 0.5
+        self.slot: timedelta = timedelta(seconds=self.slot_in_num)  # 时间步长，默认5秒
+        self.max_slot_number: int = math.ceil(self.period_in_num / self.slot_in_num)
 
         self.time_recorder: datetime = self.t_start
         self.period_counter: int = 0
@@ -135,9 +139,14 @@ class LEOEnv(gym.Env):
         """
         metadata = load_input_metadata(input, self.max_simulation_period)
         self.t_start = metadata["t_start"]
+        
         self.time_recorder = metadata["time_recorder"]
+        
         self.period = metadata["period"]
         self.max_period_numbers = metadata["max_period_numbers"]
+        
+        self.max_slot_number = math.ceil(self.period.total_seconds() / self.slot_in_num)
+        
         self.datetime_list = metadata["datetime_list"]
         objs = build_static_objects(input, self.period, self.max_period_numbers, self.datetime_list)
         self.sat = objs['sat']
@@ -329,8 +338,6 @@ class LEOEnv(gym.Env):
                             task_id=task.id,
                             src=(p, o),
                             dst=dst,
-                            target_file_size=data_bits,
-                            data_sent=task.data_sent,
                         )
                     )
                 else:
@@ -342,7 +349,7 @@ class LEOEnv(gym.Env):
                         self.logger.debug(f"[IllegalLink] Task {task.id} src={(p,o)} dst={dst} penalty={WRONG_EDGE_PENALTY}")
                     allowed = self.get_allowed_actions(task)
                     if 5 in allowed and not self.DM.is_po_occupied(p=p, o=o):
-                        workload = LAYER_PROCESS_STEP_COST[task.layer_id]
+                        # workload = LAYER_PROCESS_STEP_COST[task.layer_id]
                         self.DM.write_pi(p=p, o=o, m=task.id, value=True)
                         node.is_processing = True
                         comp_reqs.append(
@@ -350,8 +357,6 @@ class LEOEnv(gym.Env):
                                 task_id=task.id,
                                 node_id=(p, o),
                                 layer_id=task.layer_id,
-                                target_workload=workload,
-                                workload_done=task.workload_done,
                             )
                         )
                         if task.acted in [0, 1, 2, 3, 4]:
@@ -368,7 +373,7 @@ class LEOEnv(gym.Env):
                 # 使用 DecisionManager 的占用检查（按步重置，更适合并发约束）
                 is_occupied = self.DM.is_po_occupied(p=p, o=o)
                 if not is_occupied:
-                    workload = LAYER_PROCESS_STEP_COST[task.layer_id]
+                    # workload = LAYER_PROCESS_STEP_COST[task.layer_id]
                     self.DM.write_pi(p=p, o=o, m=task.id, value=True)
                     node.is_processing = True
                     comp_reqs.append(
@@ -376,8 +381,6 @@ class LEOEnv(gym.Env):
                             task_id=task.id,
                             node_id=(p, o),
                             layer_id=task.layer_id,
-                            target_workload=workload,
-                            workload_done=task.workload_done,
                         )
                     )
                     # 从 idle 或 transferring 切到 compute 时给一次额外奖励
@@ -397,12 +400,12 @@ class LEOEnv(gym.Env):
                 self.repeat_move_counts[task.id] = 0
 
         # 执行传输与计算
-        action_reward += do_transferring(tasks=tasks, trans_reqs=trans_reqs, sm=self.SM, dm=self.DM)
-        action_reward += do_computing(tasks=tasks, comp_reqs=comp_reqs, sm=self.SM, dm=self.DM)
-        do_energy_updating(slot=T_STEP, nodes=nodes, sm=self.SM)
+        action_reward += do_transferring(slot=self.slot_in_num, tasks=tasks, trans_reqs=trans_reqs, sm=self.SM, dm=self.DM)
+        action_reward += do_computing(slot=self.slot_in_num, tasks=tasks, comp_reqs=comp_reqs, sm=self.SM, dm=self.DM)
+        do_energy_updating(slot=self.slot_in_num, nodes=nodes, sm=self.SM)
 
         # 计算目标向导奖励（与动作奖励合并前先计算，以便最终汇总）
-        aim_reward = settle_reward(delay_penalty=compute_delay_penalty(tasks), energy_penalty=compute_energy_penalty(nodes))
+        aim_reward = settle_reward(delay_penalty=compute_delay_penalty(self.slot_in_num, tasks), energy_penalty=compute_energy_penalty(nodes))
 
         # 终止/截断判定
         if all_tasks_completed(all_tasks):

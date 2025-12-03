@@ -27,7 +27,7 @@ STEP_PER_SECOND = 1 / T_STEP  # 每秒的步数
 
 # ENERGY:
 # BATTERY_MAX = 60 * 3600  # J (60Wh)
-BATTERY_MAX = 60 * 3600  # J (60Wh)
+BATTERY_MAX = 30 * 3600  # J (60Wh)
 B_MAX = 100
 
 # ENERGY CONSUMPTION (all in J/s):
@@ -93,7 +93,6 @@ LAYER_PROCESS_SECOND_COST_GPU = [
     1.5,    # layer3
     0.5,    # layer4
 ]
-LAYER_PROCESS_STEP_COST = [math.ceil(i * STEP_PER_SECOND) for i in LAYER_PROCESS_SECOND_COST_GPU]
 
 EXP_OUTPUT = './output/experiment'
 LOG_OUTPUT = './output/log'

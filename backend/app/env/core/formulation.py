@@ -1,11 +1,11 @@
 from typing import List
 
-from app.config import B_MAX, LAYER_PROCESS_SECOND_COST_GPU, LAYER_PROCESS_STEP_COST, STEP_PER_SLOT, WEIGHT_DELAY, WEIGHT_ENERGY, BATTERY_MAX
+from app.config import B_MAX, LAYER_PROCESS_SECOND_COST_GPU, STEP_PER_SLOT, WEIGHT_DELAY, WEIGHT_ENERGY, BATTERY_MAX
 from app.env.vars.task import Task
 from app.entities.satellite_entity import SatelliteEntity
 
 
-def compute_delay_penalty(tasks: List[Task]):
+def compute_delay_penalty(slot: float, tasks: List[Task]):
     # done_tasks = [t for t in tasks if t.is_done]
     
     # if not done_tasks:
@@ -19,10 +19,10 @@ def compute_delay_penalty(tasks: List[Task]):
         
     # delay_penalty = max_cumulation / MAX_TASK_DELAY
     
-    max_idx = len(LAYER_PROCESS_STEP_COST) - 1
+    max_idx = len(LAYER_PROCESS_SECOND_COST_GPU) - 1
     delays = []
     for t in tasks:
-        workload_left = sum(LAYER_PROCESS_STEP_COST[i] for i in range(t.layer_id, max_idx))
+        workload_left = sum(LAYER_PROCESS_SECOND_COST_GPU[i] / slot for i in range(t.layer_id, max_idx))
         delays.append(workload_left / STEP_PER_SLOT)
         
     delay_penalty = max(delays, default=0.0)

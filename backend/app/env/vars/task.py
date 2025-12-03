@@ -1,8 +1,6 @@
 from typing import Dict
 from pydantic import BaseModel
 
-from app.config import LAYER_OUTPUT_DATA_SIZE, LAYER_PROCESS_STEP_COST
-
 """
 Each task record Z = {m, n, p, o, start, end} 
 - m: task index

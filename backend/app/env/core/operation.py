@@ -3,18 +3,19 @@ from app.env.io.state_manager import StateManager
 from app.entities.satellite_entity import SatelliteEntity
 from typing import List
 from app.env.io.decision_manager import DecisionManager
-from app.config import DATA_COMPUTE_REWARD, DATA_TRANSFER_PENALTY, DEBUG, LAYER_COMPLETION_REWARD, LAYER_OUTPUT_DATA_SIZE, LAYER_PROCESS_STEP_COST, MAX_NUM_LAYERS, STEP_PER_SECOND, T_STEP, TASK_COMPLETION_REWARD, TASK_COMPLETION_REWARD, TRANS_COMPLETION_REWARD, DELTA_WORKLOAD_REWARD
+from app.config import DATA_COMPUTE_REWARD, DATA_TRANSFER_PENALTY, DEBUG, LAYER_COMPLETION_REWARD, LAYER_OUTPUT_DATA_SIZE, LAYER_PROCESS_SECOND_COST_GPU, MAX_NUM_LAYERS, TASK_COMPLETION_REWARD, TASK_COMPLETION_REWARD, TRANS_COMPLETION_REWARD, DELTA_WORKLOAD_REWARD
 from app.env.vars.request import CompReq, TransReq
 from app.env.vars.task import Task
 
 def do_computing(
+    slot: float,
     comp_reqs: List[CompReq],
     tasks: List[Task],
     sm: StateManager,
     dm: DecisionManager,
 ):
     rewards = 0.0
-    
+    # LAYER_PROCESS_STEP_COST = [math.ceil(i * STEP_PER_SECOND) for i in LAYER_PROCESS_SECOND_COST_GPU]
     # 处理每个传输请求
     for req in comp_reqs: 
         m = req.task_id
@@ -27,7 +28,7 @@ def do_computing(
         
         # 得到当前需要计算的总工作量
         n = task.layer_id
-        target = LAYER_PROCESS_STEP_COST[n]
+        target = LAYER_PROCESS_SECOND_COST_GPU[n] / slot
         
         # 更新计算进度 (记录前进度以计算增量奖励)
         prev_workload_percent = task.workload_percent
@@ -73,6 +74,7 @@ def do_computing(
 
 
 def do_transferring(
+    slot: float,
     tasks: List[Task],
     trans_reqs: List[TransReq], 
     sm: StateManager,
@@ -125,7 +127,7 @@ def do_transferring(
         bandwidth_ratio = target_data_to_send / sum_of_data if sum_of_data > 0 else 0
 
         # 计算此步可传输的数据量
-        data_this_step = comm_capacity * T_STEP * bandwidth_ratio
+        data_this_step = comm_capacity * slot * bandwidth_ratio
 
         # 更新传输进度，位置不变
         task.data_sent += data_this_step
