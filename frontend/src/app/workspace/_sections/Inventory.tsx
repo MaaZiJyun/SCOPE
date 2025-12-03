@@ -167,7 +167,7 @@ export const Inventory = ({ project }: InventoryProps) => {
               </p>
               <ProcessBar
                 progress={
-                  missionStates.filter((m) => m.is_done).length /
+                  missionStates.reduce((sum, m) => sum + m.completion, 0) /
                   missionStates.length
                 }
                 name={"Total Completion"}

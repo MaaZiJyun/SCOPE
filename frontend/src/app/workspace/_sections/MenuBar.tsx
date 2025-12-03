@@ -213,13 +213,13 @@ async function getCacheSize() {
     });
     if (!resp.ok) {
       const error = await resp.json();
-      console.error("获取缓存大小失败:", error);
+      console.log("Failed to get cache size:", error);
       return -1;
     }
     const data: { data: number } = await resp.json();
     return data.data;
   } catch (error) {
-    console.error("获取缓存大小异常:", error);
+    console.log("Failed to get cache size:", error);
     return -1;
   }
 }
