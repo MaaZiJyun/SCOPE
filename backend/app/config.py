@@ -32,15 +32,15 @@ B_MAX = 100
 
 # ENERGY CONSUMPTION (all in J/s):
 COMPUTE_ENERGY_COST = -60      # GPU inferencing power
-TRANSMIT_ISL_ENERGY_COST = -30      # ISL power (30 W)
+TRANSMIT_ISL_ENERGY_COST = -50      # ISL power (30 W)
 TRANSMIT_SGL_ENERGY_COST = -250      # SGL power (200 W)
-STATIC_ENERGY_COST = -8        # 静态功耗
+STATIC_ENERGY_COST = -20        # 静态功耗
 
 # ENERGY HARVESTING:
 # ENERGY_HARVEST_AMOUNT = 120     # solar charging power (120 W)
 
 # TASK PARAMETERS:
-MAX_NUM_TASKS = 20
+MAX_NUM_TASKS = 40
 MAX_TRANS_RATE = 1_000_000_000
 MAX_COMP_RATE = 1 # 1 unit per second
 
@@ -87,11 +87,11 @@ BASE_MOVE_PENALTY = -0.2  # 每步基础移动惩罚，抑制无效移动探索�
 
 # LATENCY: (steps)
 LAYER_PROCESS_SECOND_COST_GPU = [
-    7.0,    # layer0  (大卷积/large tensor convs)
-    4.0,    # layer1
-    2.0,    # layer2
-    1.5,    # layer3
-    0.5,    # layer4
+    20,    # layer0  (大卷积/large tensor convs)
+    14,    # layer1
+    10,    # layer2
+    5,    # layer3
+    1,    # layer4
 ]
 
 EXP_OUTPUT = './output/experiment'

@@ -1,4 +1,6 @@
 import time
+from typing import Dict, List
+from app.config import LOG_OUTPUT
 from routers.prefix import SIMULATION_PREFIX
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import asyncio
@@ -27,9 +29,8 @@ def load_model_and_normalizer(model_path: str):
             vecnorm = None
     return model, vecnorm
 
-def env_to_payload(env: LEOEnv, info: dict) -> dict:
-    """Build a payload analogous to Simulation.serialize()"""
-    return {
+def env_to_payload(env: LEOEnv, info: dict, energy_data: Dict[str, List[float]], latency_data: Dict[str, List[float]]):
+    payload = {
         "time": env.time_recorder.isoformat(),
         "currentFrame": int(env.frame_counter),
         "slotCounter": int(env.slot_counter),
@@ -42,17 +43,25 @@ def env_to_payload(env: LEOEnv, info: dict) -> dict:
         "satellites": [s.serialize() for s in env.sat],
         "rois": [r.serialize() for r in env.roi],
         "links": env.net.serialize() if env.net else {},
-        # Serialize tasks via JSON to ensure native Python types (avoid np.int64/np.float)
-        "tasks": [
-            json.loads(t.model_dump_json()) for t in env.TM.tasks
-        ],
+        "tasks": [json.loads(t.model_dump_json()) for t in env.TM.tasks],
         "info": info,
     }
+    
+    for s in env.sat:
+        energy_data.setdefault(s.id, []).append(s.battery_ratio)
+        
+    for t in env.TM.tasks:
+        latency_data.setdefault(t.id, []).append(t.t_end - t.t_start if t.t_end and t.t_start else None)
+    
+    return payload, energy_data, latency_data
 
 @router.websocket("/ws/rl")
 async def ws_rl_run(ws: WebSocket):
     await ws.accept()
     print("[RL-WS] client connected")
+    
+    energy_data: Dict[str, List[float]] = {}
+    latency_data: Dict[str, List[float]] = {}
 
     # 1) load model (blocking IO, ok for small loads)
     try:
@@ -141,7 +150,7 @@ async def ws_rl_run(ws: WebSocket):
 
                 obs, reward, terminated, truncated, info = env.step(step_input)
 
-                payload = env_to_payload(env, info)
+                payload, energy_data, latency_data = env_to_payload(env, info, energy_data, latency_data)
                 # optionally include step-level info
                 payload.update({"reward": float(reward), "terminated": bool(terminated), "truncated": bool(truncated)})
                 await ws.send_text(json.dumps(payload, default=str))
@@ -150,6 +159,18 @@ async def ws_rl_run(ws: WebSocket):
 
                 # if terminated or truncated:
                 if terminated:
+                    # Save metrics to JSON files under LOG_OUTPUT
+                    try:
+                        os.makedirs(LOG_OUTPUT, exist_ok=True)
+                        base = f"ppo_{env.t_start.strftime('%Y%m%dT%H%M%SZ')}"
+                        energy_path = os.path.join(LOG_OUTPUT, f"{base}_energy.json")
+                        latency_path = os.path.join(LOG_OUTPUT, f"{base}_latency.json")
+                        with open(energy_path, "w") as f:
+                            json.dump(energy_data, f, ensure_ascii=False)
+                        with open(latency_path, "w") as f:
+                            json.dump(latency_data, f, ensure_ascii=False)
+                    except Exception as e:
+                        await ws.send_text(json.dumps({"error": f"save failed: {e}"}))
                     break
                 
             elapsed = time.time() - start

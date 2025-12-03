@@ -1,4 +1,6 @@
 import time
+import os
+from typing import Dict, List
 from app.env.baselines.L2D2.L2D2Env import L2D2Env
 from routers.prefix import SIMULATION_PREFIX
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -6,12 +8,13 @@ import asyncio
 import json
 from app.env.env import LEOEnv
 from app.models.api_dict.pj import ProjectDict
+from app.config import LOG_OUTPUT
 
 router = APIRouter(prefix=SIMULATION_PREFIX, tags=["l2d2-run"])
 
 
-def env_to_payload(env: LEOEnv, info: dict) -> dict:
-    return {
+def env_to_payload(env: LEOEnv, info: dict, energy_data: Dict[str, List[float]], latency_data: Dict[str, List[float]]):
+    payload = {
         "time": env.time_recorder.isoformat(),
         "currentFrame": int(env.frame_counter),
         "slotCounter": int(env.slot_counter),
@@ -27,12 +30,23 @@ def env_to_payload(env: LEOEnv, info: dict) -> dict:
         "tasks": [json.loads(t.model_dump_json()) for t in env.TM.tasks],
         "info": info,
     }
+    
+    for s in env.sat:
+        energy_data.setdefault(s.id, []).append(s.battery_ratio)
+        
+    for t in env.TM.tasks:
+        latency_data.setdefault(t.id, []).append(t.t_end - t.t_start if t.t_end and t.t_start else None)
+    
+    return payload, energy_data, latency_data
 
 
 @router.websocket("/ws/l2d2")
 async def ws_l2d2_run(ws: WebSocket):
     await ws.accept()
     print("[L2D2-WS] client connected")
+    
+    energy_data: Dict[str, List[float]] = {}
+    latency_data: Dict[str, List[float]] = {}
 
     # Build env from client init payload
     env: L2D2Env = None
@@ -79,15 +93,29 @@ async def ws_l2d2_run(ws: WebSocket):
                 # decide actions
                 reward, terminated, truncated, info = env.step()
 
-                payload = env_to_payload(env, info)
+                payload, energy_data, latency_data = env_to_payload(env, info, energy_data, latency_data)
+                
                 payload.update({
                     "reward": float(reward),
                     "terminated": bool(terminated),
                     "truncated": bool(truncated),
                 })
+                
                 await ws.send_text(json.dumps(payload, default=str))
 
                 if terminated:
+                    # Save metrics to JSON files under LOG_OUTPUT
+                    try:
+                        os.makedirs(LOG_OUTPUT, exist_ok=True)
+                        base = f"l2d2_{env.t_start.strftime('%Y%m%dT%H%M%SZ')}"
+                        energy_path = os.path.join(LOG_OUTPUT, f"{base}_energy.json")
+                        latency_path = os.path.join(LOG_OUTPUT, f"{base}_latency.json")
+                        with open(energy_path, "w") as f:
+                            json.dump(energy_data, f, ensure_ascii=False)
+                        with open(latency_path, "w") as f:
+                            json.dump(latency_data, f, ensure_ascii=False)
+                    except Exception as e:
+                        await ws.send_text(json.dumps({"error": f"save failed: {e}"}))
                     break
 
             elapsed = time.time() - start

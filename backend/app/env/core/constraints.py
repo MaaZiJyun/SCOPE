@@ -4,17 +4,19 @@ from app.env.vars.node import Node
 from app.env.vars.task import Task
 import numpy as np
 import logging
-from app.config import DEBUG, STEP_PER_SLOT
+from app.config import DEBUG, LAYER_PROCESS_SECOND_COST_GPU, STEP_PER_SLOT
 from app.env.io.decision_manager import DecisionManager
 from app.env.io.state_manager import StateManager
 from app.entities.satellite_entity import SatelliteEntity
 
 # truncation conditions
 
-def all_tasks_overtimed(tasks: List[Task]):
+def all_tasks_overtimed(tasks: List[Task], slot: float):
     result = False
+    total_proc_time = sum(LAYER_PROCESS_SECOND_COST_GPU[i] for i in range(len(LAYER_PROCESS_SECOND_COST_GPU)))
+    total_proc_steps = total_proc_time / slot
     if len(tasks) > 0:
-        result = all((t.t_end - t.t_start) > 2*STEP_PER_SLOT for t in tasks)
+        result = all((t.t_end - t.t_start) > 1.5 * total_proc_steps for t in tasks)
     return result
 
 def any_illegal_link(sm: StateManager, dm: DecisionManager, eps: float = 1e-9):

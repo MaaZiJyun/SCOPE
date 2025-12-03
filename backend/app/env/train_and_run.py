@@ -27,9 +27,10 @@ def train_model(input: ProjectDict):
     # Configuration constants (use these instead of CLI)
     POLICY_CHOICE = "MultiInputPolicy"
     MODEL_PATH = "ai_model/ppo_leoenv"
-    TIMESTEPS = 10000
+    TIMESTEPS = 30000
     NUM_ENVS = 1
-    LR = 1e-4
+    # LR = 1e-4
+    LR = 5e-5
 
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
     
@@ -53,17 +54,18 @@ def train_model(input: ProjectDict):
 
     # Use standard PPO (no action masks)
     # Increase PPO entropy coefficient to promote exploration and help discover compute action
-    # Updated ent_coef from 0.03 to 0.05
     
     model = PPO(
+        clip_range=1.5,
+        target_kl=0.02,
         policy=POLICY_CHOICE,
         env=venv,
         verbose=1,
         learning_rate=LR,
-        n_steps=2048,
-        batch_size=64,
+        n_steps=4096,
+        batch_size=256,
         n_epochs=10,
-        ent_coef=0.05,
+        ent_coef=0.04,
         vf_coef=0.5,
         policy_kwargs=policy_kwargs,
     )

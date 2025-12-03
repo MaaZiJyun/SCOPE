@@ -91,6 +91,8 @@ class LEOEnv(gym.Env):
 
         # 重复移动计数 (按任务 id)
         self.repeat_move_counts = {}
+        # 空转计数（连续 no-op 次数，按任务 id）
+        self.idle_counts = {}
         
         # 初始化基本参数
         self.action_space = spaces.MultiDiscrete([6] * MAX_NUM_TASKS)
@@ -258,10 +260,13 @@ class LEOEnv(gym.Env):
             
             p, o = task.plane_at, task.order_at
 
-            # node = self.EG.nodes.get((p, o))
             node = next((s for s in self.sat if s.plane == p and s.order == o), None)
             if node is None:
                 continue
+            
+            # if node.battery_ratio <= 0:
+            #     task.t_end += 1
+            #     continue
             
             # validate action; validate_action returns (valid: bool, penalty: float, truncated: bool, reason: str)
             is_valid, penalty, is_truncated, truncated_reason_local = self.validate_action(task, act)
@@ -295,7 +300,27 @@ class LEOEnv(gym.Env):
 
             # action is valid -> apply effects
             if act == 0:
-                action_reward += NO_ACTION_PENALTY
+                # 统计连续 no-op
+                self.idle_counts[task.id] = self.idle_counts.get(task.id, 0) + 1
+                # 若允许计算且当前位置未被占用，防止长期空转：转为计算
+                allowed = self.get_allowed_actions(task)
+                if 5 in allowed and not self.DM.is_po_occupied(p=p, o=o):
+                    # 触发“从空转到计算”的正向激励
+                    action_reward += FIRST_COMPUTE_BONUS
+                    self.DM.write_pi(p=p, o=o, m=task.id, value=True)
+                    node.is_processing = True
+                    comp_reqs.append(
+                        CompReq(
+                            task_id=task.id,
+                            node_id=(p, o),
+                            layer_id=task.layer_id,
+                        )
+                    )
+                    act = 5
+                    # 重置空转计数
+                    self.idle_counts[task.id] = 0
+                else:
+                    action_reward += NO_ACTION_PENALTY
 
             elif act in [1, 2, 3, 4]:
                 # 基础移动惩罚（降低无意义移动的吸引力）
@@ -308,6 +333,9 @@ class LEOEnv(gym.Env):
                 else:
                     self.repeat_move_counts[task.id] = 1
 
+                # 移动时重置空转计数
+                self.idle_counts[task.id] = 0
+
                 if self.repeat_move_counts[task.id] > REPEAT_MOVE_THRESHOLD:
                     excess = self.repeat_move_counts[task.id] - REPEAT_MOVE_THRESHOLD
                     penalty = REPEAT_MOVE_PENALTY_BASE * excess
@@ -317,6 +345,24 @@ class LEOEnv(gym.Env):
                     action_reward += penalty
                     if DEBUG:
                         self.logger.debug(f"[Penalty] Task {task.id} repeat move count={self.repeat_move_counts[task.id]} penalty={penalty:.3f}")
+
+                    # 防止“永远绕圈”：若可计算且未占用，强制改为计算
+                    allowed = self.get_allowed_actions(task)
+                    if 5 in allowed and not self.DM.is_po_occupied(p=p, o=o):
+                        self.DM.write_pi(p=p, o=o, m=task.id, value=True)
+                        node.is_processing = True
+                        comp_reqs.append(
+                            CompReq(
+                                task_id=task.id,
+                                node_id=(p, o),
+                                layer_id=task.layer_id,
+                            )
+                        )
+                        # 从移动切到计算，给予一次性奖励
+                        action_reward += FIRST_COMPUTE_BONUS
+                        act = 5
+                        # 重置重复移动计数，防止再次触发
+                        self.repeat_move_counts[task.id] = 0
 
                 # movement actions
                 if act == 1:
@@ -418,15 +464,15 @@ class LEOEnv(gym.Env):
             terminated = True
             terminated_reason = "satellite_energy_depleted"
 
-        if all_tasks_overtimed(tasks):
-            action_reward += OVERTIME_PENALTY
-            truncated = True
-            truncated_reason = "all_tasks_overtimed"
+        # if all_tasks_overtimed(tasks, self.slot_in_num):
+        #     action_reward += OVERTIME_PENALTY
+        #     truncated = True
+        #     truncated_reason = "all_tasks_overtimed"
             
-        elif any_illegal_link(self.SM, self.DM):
-            action_reward += WRONG_EDGE_PENALTY
-            truncated = True
-            truncated_reason = "any_illegal_link"
+        # elif any_illegal_link(self.SM, self.DM):
+        #     action_reward += WRONG_EDGE_PENALTY
+        #     truncated = True
+        #     truncated_reason = "any_illegal_link"
 
         # 终端/截断调整后，合并最终奖励
         reward = action_reward + aim_reward
