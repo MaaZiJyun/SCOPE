@@ -121,7 +121,7 @@ function GsDataNode({ gs }: { gs: StationFrame }) {
     }
   });
 
-  let color = "#ff8585";
+  let color = "#ffffff";
   if (gs.onUpload) color = "blue";
   if (gs.onDownload) color = "red";
 
@@ -133,7 +133,7 @@ function GsDataNode({ gs }: { gs: StationFrame }) {
         transparent
         opacity={1}
         emissive={color}
-        emissiveIntensity={2}
+        emissiveIntensity={1}
       />
       <Html position={[0, 0, 0]}>
         <div
@@ -311,7 +311,7 @@ function DataFlowScene({
 
           // 计算线段中点
           const midVec = startVec.clone().add(endVec).multiplyScalar(0.5);
-
+          const linkColor = link.type === "ISL" ? "#ffffff" : "red";
           return (
             <line key={i}>
               <primitive object={geometry} attach="geometry" />
@@ -319,7 +319,7 @@ function DataFlowScene({
                 attach="material"
                 transparent
                 opacity={0.2}
-                color={"#ffffff"}
+                color={linkColor}
                 linewidth={2}
               />
               {/* <Html distanceFactor={1} position={[midVec.x, midVec.y, midVec.z]}>

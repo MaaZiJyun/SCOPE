@@ -24,12 +24,17 @@ def load_input_metadata(input: ProjectDict, max_simulation_period: float):
     t_start = normalize_time(input.experiment.start_time)
     time_recorder = t_start
     
+    if input.experiment.end_time:
+        t_end = normalize_time(input.experiment.end_time)
+        max_simulation_period = t_end.timestamp() - t_start.timestamp()
+    
     # 计算周期长度
     if input.experiment.time_slot:
         period = timedelta(seconds=input.experiment.time_slot)
         
+        
     # 计算总周期数
-    max_period_numbers = int(max_simulation_period // period)
+    max_period_numbers = int(max_simulation_period // period.total_seconds())
     
     # 生成时间点列表
     datetime_list = [
@@ -38,6 +43,7 @@ def load_input_metadata(input: ProjectDict, max_simulation_period: float):
 
     return {
         "t_start": t_start,
+        "t_end": t_end,
         "time_recorder": time_recorder,
         "period": period,
         "max_period_numbers": max_period_numbers,
