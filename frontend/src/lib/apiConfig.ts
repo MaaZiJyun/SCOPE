@@ -15,5 +15,6 @@ export const API_PATHS = {
     detectProjectInfo: "/api/local-project/detect",
     saveProjectInfo: "/api/local-project/save",
     simulationWebSocket: "/api/simulation/websocket",
-    rlWebSocket: "/api/simulation/ws/rl"
+    rlWebSocket: "/api/simulation/ws/rl",
+    l2d2WebSocket: "/api/simulation/ws/l2d2"
 };

@@ -21,17 +21,17 @@ BATTERY_THRESHOLD = 0.3  # 最低可工作电量阈值
 # UL_FREQ_HZ = DL_FREQ_HZ  # Uplink frequency (Hz)
 # UL_BW_HZ = DL_BW_HZ      # Uplink bandwidth (Hz)
 
-DL_POWER_W = 0.3         # QPSK主下行发射功率（W）
-DL_G_T_DB = 10           # 发射天线增益（dB）
-DL_G_R_DB = 12           # 接收天线增益（dB）
-DL_FREQ_HZ = 435_900_000 # 频率（Hz）
-DL_BW_HZ = 24_890        # 带宽（Hz）
+DL_POWER_W = 0.3         # 保持或提高到 1.0 或 5.0 W（推荐 0.3->1.0）
+DL_G_T_DB = 10           # 若能：提高到 15~20 dBi（卫星端受限）
+DL_G_R_DB = 20           # 地面要用高增益天线（20~30 dBi）
+DL_FREQ_HZ = 2_000_000_000  # 2 GHz（S/2GHz band）或更高，便于更宽带
+DL_BW_HZ = 20_000_000    # 20 MHz
 
-UL_POWER_W = 1.0         # 上行发射功率（W）
-UL_G_T_DB = 12           # 上行发射天线增益（dB）
-UL_G_R_DB = 10           # 上行接收天线增益（dB）
-UL_FREQ_HZ = 435_900_000 # 上行频率（Hz）
-UL_BW_HZ = 24_890        # 上行带宽（Hz）
+UL_POWER_W = 50.0
+UL_G_T_DB = 30
+UL_G_R_DB = 12
+UL_FREQ_HZ = 8_000_000_000  # 8 GHz 示例（Ku/Ka）
+UL_BW_HZ = 50_000_000       # 50 MHz -> 可达数 10s~100s Mbps（视 SNR）
 
 ISL_POWER_W = 60.0       # ISL transmit power (W)
 ISL_G_T_DB = 32.13       # ISL transmit antenna gain (dB)

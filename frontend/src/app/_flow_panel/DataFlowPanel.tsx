@@ -104,54 +104,54 @@ function TaskDataNode({ sat, task }: { sat: SatelliteFrame; task: Task }) {
   );
 }
 
-// function GsDataNode({ gs }: { gs: StationFrame }) {
-//   const meshRef = useRef<THREE.Mesh>(null!);
-//   const ratio = gs.omega;
+function GsDataNode({ gs }: { gs: StationFrame }) {
+  const meshRef = useRef<THREE.Mesh>(null!);
+  const ratio = 1;
 
-//   useFrame(() => {
-//     if (meshRef.current) {
-//       const { x, y, z } = gs.pos;
-//       meshRef.current.position.set(x * SCALE, y * SCALE, z * SCALE);
-//       const size = THREE.MathUtils.clamp(
-//         ratio * 5000,
-//         gs.missionToUpload ? 1 : 0,
-//         100
-//       );
-//       meshRef.current.scale.set(size, size, size);
-//     }
-//   });
+  useFrame(() => {
+    if (meshRef.current) {
+      const { x, y, z } = gs.pos;
+      meshRef.current.position.set(x * SCALE, y * SCALE, z * SCALE);
+      const size = THREE.MathUtils.clamp(
+        ratio * 5000,
+        gs.missionToUpload ? 1 : 0,
+        10
+      );
+      meshRef.current.scale.set(size, size, size);
+    }
+  });
 
-//   let color = "#ff8585";
-//   if (gs.onUpload) color = "blue";
-//   if (gs.onDownload) color = "red";
+  let color = "#ff8585";
+  if (gs.onUpload) color = "blue";
+  if (gs.onDownload) color = "red";
 
-//   return (
-//     <mesh ref={meshRef}>
-//       <sphereGeometry args={[5, 16, 16]} />
-//       <meshStandardMaterial
-//         color={color}
-//         transparent
-//         opacity={Math.min(ratio * 100, 1)}
-//         emissive={color}
-//         emissiveIntensity={2}
-//       />
-//       <Html distanceFactor={5000} position={[0, 0, 0]}>
-//         <div
-//           className="select-none flex flex-col w-20 items-center"
-//           style={{
-//             color: gs.onDownload ? "red" : "white",
-//             fontWeight: 200,
-//             fontSize: 10,
-//             padding: "1px 4px",
-//           }}
-//         >
-//           <span>GS-{gs.id.slice(-6)}</span>
-//           {/* <span>{ratio.toFixed(4)}</span> */}
-//         </div>
-//       </Html>
-//     </mesh>
-//   );
-// }
+  return (
+    <mesh ref={meshRef}>
+      <sphereGeometry args={[5, 16, 16]} />
+      <meshStandardMaterial
+        color={color}
+        transparent
+        opacity={1}
+        emissive={color}
+        emissiveIntensity={2}
+      />
+      <Html position={[0, 0, 0]}>
+        <div
+          className="select-none flex flex-col w-20 items-center"
+          style={{
+            color: gs.onDownload ? "red" : "white",
+            fontWeight: 200,
+            fontSize: 10,
+            padding: "1px 4px",
+          }}
+        >
+          <span>GS-{gs.id.slice(-5)}</span>
+          {/* <span>{ratio.toFixed(4)}</span> */}
+        </div>
+      </Html>
+    </mesh>
+  );
+}
 
 function DataFlowScene({
   satellites,
@@ -181,7 +181,7 @@ function DataFlowScene({
             (s) => s.plane === t.plane_at && s.order === t.order_at
           );
           if (!sat) return null;
-          console.log("Rendering task:", t.id, "on sat:", sat.id);
+          // console.log("Rendering task:", t.id, "on sat:", sat.id);
           const act = Number(t.acted);
           if ([1, 2, 3, 4].includes(act) === false) {
             if (sat) return <TaskDataNode key={t.id} sat={sat} task={t} />;
@@ -291,9 +291,9 @@ function DataFlowScene({
             </group>
           );
         })}
-        {/* {stations.map((gs) => (
+        {stations.map((gs) => (
           <GsDataNode key={gs.id} gs={gs} />
-        ))} */}
+        ))}
         {links.map((link, i) => {
           const [start, end] = link.linkPos;
           const startVec = new THREE.Vector3(

@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from app.models.api_dict.basic import XYZ, LatLon
 from app.entities.functions.timeslot import date_to_timeslot
 from app.services.network_service import LinkSnapshot
-from app.config import BATTERY_MAX, COMPUTE_ENERGY_COST, STATIC_ENERGY_COST, TRANSMIT_ENERGY_COST
+from app.config import BATTERY_MAX, COMPUTE_ENERGY_COST, STATIC_ENERGY_COST, TRANSMIT_ISL_ENERGY_COST, TRANSMIT_SGL_ENERGY_COST
 from app.entities._satellite_modules.energy import equa_solar_income
 
 class SatelliteSnapshot(BaseModel):
@@ -116,7 +116,11 @@ class SatelliteEntity():
         # print(f"dt {dt} Static discharge for satellite {self.id}: cost={cost:.2f}, battery={self.battery:.2f}, percent={self.battery_percent:.2f}%")
 
     def discharge_dynamic(self, dt: float) -> None:
-        cost = dt * (self.is_communicating_isl * TRANSMIT_ENERGY_COST + self.is_processing * COMPUTE_ENERGY_COST)
+        cost = dt * (
+            self.is_communicating_sgl * TRANSMIT_SGL_ENERGY_COST + 
+            self.is_communicating_isl * TRANSMIT_ISL_ENERGY_COST + 
+            self.is_processing * COMPUTE_ENERGY_COST
+            )
         self.battery = max(self.battery + cost, 0)
         self.battery_ratio = (self.battery / BATTERY_MAX)
 

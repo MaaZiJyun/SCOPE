@@ -32,7 +32,8 @@ B_MAX = 100
 
 # ENERGY CONSUMPTION (all in J/s):
 COMPUTE_ENERGY_COST = -60      # GPU inferencing power
-TRANSMIT_ENERGY_COST = -30      # ISL power (10 W)
+TRANSMIT_ISL_ENERGY_COST = -30      # ISL power (30 W)
+TRANSMIT_SGL_ENERGY_COST = -250      # SGL power (200 W)
 STATIC_ENERGY_COST = -8        # 静态功耗
 
 # ENERGY HARVESTING:

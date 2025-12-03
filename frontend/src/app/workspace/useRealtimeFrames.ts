@@ -39,7 +39,8 @@ export function useRealtimeFrames() {
     setCurrentFrame(0);
     setError(null);
     // const ws = new WebSocket(WS_BASE_URL + API_PATHS.simulationWebSocket);
-    const ws = new WebSocket(WS_BASE_URL + API_PATHS.rlWebSocket);
+    // const ws = new WebSocket(WS_BASE_URL + API_PATHS.rlWebSocket);
+    const ws = new WebSocket(WS_BASE_URL + API_PATHS.l2d2WebSocket);
     wsRef.current = ws;
 
     ws.onopen = () => {

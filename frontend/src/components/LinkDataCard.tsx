@@ -10,7 +10,8 @@ const LinkDataCard: React.FC<LinkDataCardProps> = ({ link }) => {
     <div className="w-full rounded-lg p-2 shadow border border-white/10 mb-2">
       
       <div className="flex justify-between mb-1">
-        <span className="text-xs text-white/60">
+        {link.type === "ISL" ? (
+         <span className="text-xs text-white/60">
           From{" "}
           <span className="text-white">
             {link.src.split("-")[1]}, {link.src.split("-")[2]}
@@ -20,6 +21,19 @@ const LinkDataCard: React.FC<LinkDataCardProps> = ({ link }) => {
             {link.dst.split("-")[1]}, {link.dst.split("-")[2]}
           </span>
         </span>
+        ) : (
+          <span className="text-xs text-white/60">
+          From{" "}
+          <span className="text-white">
+            {link.src.slice(-5)}
+          </span>{" "}
+          To{" "}
+          <span className="text-white">
+            {link.dst.slice(-5)}
+          </span>
+        </span>
+        )}
+        
       </div>
       <div className="flex justify-between">
         <span className="text-xs text-white/60">Link Type:</span>

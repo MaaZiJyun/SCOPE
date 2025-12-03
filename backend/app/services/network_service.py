@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from app.config import R_EARTH
-from app.entities._satellite_modules.constants import ISL_BW_HZ, ISL_FREQ_HZ, ISL_G_R_DB, ISL_G_T_DB, ISL_POWER_W, UL_BW_HZ, UL_FREQ_HZ, UL_G_R_DB, UL_G_T_DB, UL_POWER_W
+from app.entities._satellite_modules.constants import DL_BW_HZ, DL_FREQ_HZ, DL_G_R_DB, DL_G_T_DB, DL_POWER_W, ISL_BW_HZ, ISL_FREQ_HZ, ISL_G_R_DB, ISL_G_T_DB, ISL_POWER_W, UL_BW_HZ, UL_FREQ_HZ, UL_G_R_DB, UL_G_T_DB, UL_POWER_W
 from app.models.api_dict.basic import XYZ, LatLon
 
 class LinkSnapshot(BaseModel):
@@ -63,7 +63,7 @@ class Network:
         EIRP = 10 * np.log10(P_t) + G_t  # dBW
         G_T = G_r - 10 * np.log10(T_sys)  # dB/K
         C_N_dB = EIRP + G_T - L - k_dB - 10 * np.log10(B)  # dB
-        SNR_linear = 10 ** (C_N_dB / 10) if C_N_dB > 0 else 0
+        SNR_linear = 10 ** (C_N_dB / 10)
         return SNR_linear, C_N_dB
     
     @staticmethod
@@ -74,7 +74,7 @@ class Network:
         :param B: 带宽 (Hz)
         :return: 传输速率 (bits/s)
         """
-        rate = B * np.log2(1 + SNR) if SNR > 0 else 0  # bits/s, [1] equation (6)
+        rate = B * np.log2(1 + SNR)  # bits/s, [1] equation (6)
         return rate
 
     def compute_isl_links_at(self, period_counter: int, slot_counter: int) -> List[LinkSnapshot]:
@@ -184,8 +184,8 @@ class Network:
                     dist = norm_vec
 
                     # 计算SNR和传输速率 (SGL默认参数, [1] Table II PAGE 23)
-                    snr_down_linear, snr_down_dB = self.calculate_snr(UL_POWER_W, dist, UL_G_T_DB, UL_G_R_DB, UL_FREQ_HZ, UL_BW_HZ)
-                    rate_down = self.calculate_trans_rate(snr_down_linear, UL_BW_HZ)
+                    snr_down_linear, snr_down_dB = self.calculate_snr(DL_POWER_W, dist, DL_G_T_DB, DL_G_R_DB, DL_FREQ_HZ, DL_BW_HZ)
+                    rate_down = self.calculate_trans_rate(snr_down_linear, DL_BW_HZ)
 
                     # 下行链路
                     links.append(
@@ -263,6 +263,30 @@ class Network:
                     result.append(l)
             else:
                 if (l.src == node_id or l.dst == node_id):
+                    result.append(l)
+
+        return result
+    
+    def get_isl_of_node_at(self, sat_id: str, period_counter: int, slot_counter: int) -> List[LinkSnapshot]:
+        self._at(period_counter, slot_counter)
+        result = []
+
+        for l in self._allLinks:
+            if l.type == "ISL" and (l.src == sat_id or l.dst == sat_id):
+                result.append(l)
+
+        return result
+    
+    def get_sgl_of_node_at(self, node_id: str, node_type: str, period_counter: int, slot_counter: int) -> List[LinkSnapshot]:
+        self._at(period_counter, slot_counter)
+        result = []
+
+        for l in self._allLinks:
+            if node_type.upper() == "GS":
+                if (l.src == node_id or l.dst == node_id) and l.type in ("DL", "UL"):
+                    result.append(l)
+            elif node_type.upper() == "SAT":
+                if (l.src == node_id or l.dst == node_id) and l.type in ("DL", "UL"):
                     result.append(l)
 
         return result
