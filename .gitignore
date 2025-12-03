@@ -19,6 +19,7 @@ backend/cache/
 backend/projects/
 backend/ai_model/
 backend/app/*.pkl
+backend/app/env/baselines
 
 # Node/Frontend
 node_modules/
@@ -45,7 +46,7 @@ frontend/.vercel
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 
-/frontend/public/planet_texture/
+frontend/public/planet_texture/
 
 # Misc
 .DS_Store

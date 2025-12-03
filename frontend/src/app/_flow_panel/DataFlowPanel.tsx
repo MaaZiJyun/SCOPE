@@ -77,7 +77,7 @@ function TaskDataNode({ sat, task }: { sat: SatelliteFrame; task: Task }) {
       const size = THREE.MathUtils.clamp(
         ratio * 5000,
         sat.attnHead ? 1 : 0,
-        80
+        80 * (1 - task.data_percent * 0.6)
       );
       meshRef.current.scale.set(size, size, size);
     }
@@ -96,7 +96,7 @@ function TaskDataNode({ sat, task }: { sat: SatelliteFrame; task: Task }) {
         emissiveIntensity={1}
       />
       <Html position={[0, 0, 0]}>
-        <div className="select-none px-3 py-1 w-20 items-center bg-black/60 rounded-md text-sm">
+        <div className="select-none px-3 py-1 w-20 items-center bg-black/50 rounded-md text-sm">
           <span>Task {task.id}</span>
         </div>
       </Html>
@@ -104,54 +104,54 @@ function TaskDataNode({ sat, task }: { sat: SatelliteFrame; task: Task }) {
   );
 }
 
-function GsDataNode({ gs }: { gs: StationFrame }) {
-  const meshRef = useRef<THREE.Mesh>(null!);
-  const ratio = gs.omega;
+// function GsDataNode({ gs }: { gs: StationFrame }) {
+//   const meshRef = useRef<THREE.Mesh>(null!);
+//   const ratio = gs.omega;
 
-  useFrame(() => {
-    if (meshRef.current) {
-      const { x, y, z } = gs.pos;
-      meshRef.current.position.set(x * SCALE, y * SCALE, z * SCALE);
-      const size = THREE.MathUtils.clamp(
-        ratio * 5000,
-        gs.missionToUpload ? 1 : 0,
-        100
-      );
-      meshRef.current.scale.set(size, size, size);
-    }
-  });
+//   useFrame(() => {
+//     if (meshRef.current) {
+//       const { x, y, z } = gs.pos;
+//       meshRef.current.position.set(x * SCALE, y * SCALE, z * SCALE);
+//       const size = THREE.MathUtils.clamp(
+//         ratio * 5000,
+//         gs.missionToUpload ? 1 : 0,
+//         100
+//       );
+//       meshRef.current.scale.set(size, size, size);
+//     }
+//   });
 
-  let color = "#ff8585";
-  if (gs.onUpload) color = "blue";
-  if (gs.onDownload) color = "red";
+//   let color = "#ff8585";
+//   if (gs.onUpload) color = "blue";
+//   if (gs.onDownload) color = "red";
 
-  return (
-    <mesh ref={meshRef}>
-      <sphereGeometry args={[5, 16, 16]} />
-      <meshStandardMaterial
-        color={color}
-        transparent
-        opacity={Math.min(ratio * 100, 1)}
-        emissive={color}
-        emissiveIntensity={2}
-      />
-      <Html distanceFactor={5000} position={[0, 0, 0]}>
-        <div
-          className="select-none flex flex-col w-20 items-center"
-          style={{
-            color: gs.onDownload ? "red" : "white",
-            fontWeight: 200,
-            fontSize: 10,
-            padding: "1px 4px",
-          }}
-        >
-          <span>GS-{gs.id.slice(-6)}</span>
-          {/* <span>{ratio.toFixed(4)}</span> */}
-        </div>
-      </Html>
-    </mesh>
-  );
-}
+//   return (
+//     <mesh ref={meshRef}>
+//       <sphereGeometry args={[5, 16, 16]} />
+//       <meshStandardMaterial
+//         color={color}
+//         transparent
+//         opacity={Math.min(ratio * 100, 1)}
+//         emissive={color}
+//         emissiveIntensity={2}
+//       />
+//       <Html distanceFactor={5000} position={[0, 0, 0]}>
+//         <div
+//           className="select-none flex flex-col w-20 items-center"
+//           style={{
+//             color: gs.onDownload ? "red" : "white",
+//             fontWeight: 200,
+//             fontSize: 10,
+//             padding: "1px 4px",
+//           }}
+//         >
+//           <span>GS-{gs.id.slice(-6)}</span>
+//           {/* <span>{ratio.toFixed(4)}</span> */}
+//         </div>
+//       </Html>
+//     </mesh>
+//   );
+// }
 
 function DataFlowScene({
   satellites,
@@ -388,7 +388,7 @@ export default function DataFlowPanel() {
         />
       </div>
       {(isTerminated || isTruncated) && (
-        <div className="absolute flex w-full h-full items-center justify-center bg-white/20">
+        <div className="absolute flex w-full h-full items-center justify-center bg-white/10">
           <div className="text-center text-white">
             <div className="text-xl font-light mb-4">
               {isTerminated
