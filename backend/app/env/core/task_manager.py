@@ -26,6 +26,8 @@ class TaskManager:
             task_obj = Task(
                 id=_id,
                 layer_id=0,
+                # plane_at=0,
+                # order_at=0,
                 plane_at=_plane_at,
                 order_at=_order_at,
                 t_start=_t,
@@ -33,7 +35,8 @@ class TaskManager:
                 acted=0,
                 workload_done=0,
                 data_sent=0,
-                is_done=False
+                is_done=False,
+                ddl = _t + 1.5 * 120,
             )
             # print(f"Generated Task ID {task_obj.id} start time {task_obj.t_start} end time {task_obj.t_end}")
             self.tasks.append(task_obj)
@@ -71,8 +74,3 @@ class TaskManager:
 
         # --- Case 4: idle ---
         return "idle"
-
-
-
-
-

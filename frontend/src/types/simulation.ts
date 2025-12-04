@@ -70,6 +70,8 @@ export interface SatelliteFrame {
 
   // energy
   batteryPercent: number;
+  gainPercent: number;
+  costPercent: number;
 
   // indicators
   onROI: boolean;

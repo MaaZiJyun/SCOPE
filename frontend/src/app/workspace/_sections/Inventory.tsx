@@ -341,8 +341,14 @@ function SatelliteItem({
           <div className="mt-1 mb-2 px-2">
             <InfoItem label="ID" value={sat.id} />
             {/* <InfoItem label="Name" value={sat.name} /> */}
-            <InfoItem label="Plane" value={sat.plane} />
-            <InfoItem label="Order" value={sat.order} />
+            <InfoItem
+              label="Gain"
+              value={satFrame ? satFrame.gainPercent.toFixed(2) + "%" : "0.00"}
+            />
+            <InfoItem
+              label="Cost"
+              value={satFrame ? satFrame.costPercent.toFixed(2) + "%" : "0.00"}
+            />
             {/* <SatDataPercentageCard key={sat.id} sat={satFrame} /> */}
             <ProcessBar
               progress={satFrame ? satFrame.batteryPercent / 100 : 0}

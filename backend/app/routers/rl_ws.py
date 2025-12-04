@@ -1,6 +1,7 @@
 import time
 from typing import Dict, List
 from app.config import LOG_OUTPUT
+from app.env.PPO.PPOEnv import PPOEnv
 from routers.prefix import SIMULATION_PREFIX
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import asyncio
@@ -74,6 +75,7 @@ async def ws_rl_run(ws: WebSocket):
     # 2) Build env (you must provide a ProjectDict to initialize the env)
     #    For demo: expecting the client to send an "init" message with project config.
     env: LEOEnv = None
+    # env: PPOEnv = None
     try:
         # wait for init message containing project JSON
         init_msg = await ws.receive_text()
@@ -83,11 +85,13 @@ async def ws_rl_run(ws: WebSocket):
             await ws.close()
             return
         proj = ProjectDict.model_validate(data["payload"])
+        print(proj)
         env = LEOEnv(proj)
         # call setup/reset to prepare internal structures
         env.setup(proj)
         obs, _ = env.reset()
     except Exception as e:
+        print(f"Environment initialization failed: {e}")
         await ws.send_text(json.dumps({"error": f"env init failed: {e}"}))
         await ws.close()
         return

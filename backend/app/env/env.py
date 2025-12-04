@@ -102,6 +102,11 @@ class LEOEnv(gym.Env):
         o = self.SM.O_MAX
         n = self.SM.N_MAX
         m = self.SM.M_MAX
+        
+        # scheduling decision
+        self.at_sunlit_sat = 0
+        self.at_dark_sat = 0
+        self.at_ground = 0
 
         obs_spaces = {
             "energy": spaces.Box(low=-np.inf, high=np.inf, shape=(p, o), dtype=np.float32),
@@ -351,6 +356,10 @@ class LEOEnv(gym.Env):
                     if 5 in allowed and not self.DM.is_po_occupied(p=p, o=o):
                         self.DM.write_pi(p=p, o=o, m=task.id, value=True)
                         node.is_processing = True
+                        if node.is_charging:
+                            self.at_sunlit_sat += 1
+                        else:
+                            self.at_dark_sat += 1
                         comp_reqs.append(
                             CompReq(
                                 task_id=task.id,

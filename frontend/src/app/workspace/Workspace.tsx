@@ -109,6 +109,12 @@ export default function Workspace({ selected }: WorkspaceProps) {
           setIsCacheLoading(false);
         });
       }
+      if (child === "Auto Testing") {
+        setIsCacheLoading(true);
+        autoTestingCache(selectedProject).then((success) => {
+          setIsCacheLoading(false);
+        });
+      }
       if (child === "Clear Datasets") clearCache();
     }
     if (parent === "Project") {
@@ -265,6 +271,27 @@ async function initializeCache(project: Project) {
 async function trainModelCache(project: Project) {
   try {
     const resp = await fetch("/api/local-cache/train", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(project),
+    });
+    if (!resp.ok) {
+      const error = await resp.json();
+      console.error("初始化模拟失败:", error);
+      return false;
+    }
+    const data = await resp.json();
+    console.log("模拟初始化成功:", data);
+    return true;
+  } catch (error) {
+    console.error("初始化模拟异常:", error);
+    return false;
+  }
+}
+
+async function autoTestingCache(project: Project) {
+  try {
+    const resp = await fetch("/api/local-cache/auto", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(project),

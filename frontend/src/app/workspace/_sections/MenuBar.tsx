@@ -58,7 +58,7 @@ const menuItems: MenuItem[] = [
       "Train Model",
       "Launch Simulation",
       "Shutdown",
-      "Download Datasets",
+      "Auto Testing",
       "Clear Datasets",
     ],
   },

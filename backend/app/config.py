@@ -26,13 +26,13 @@ STEP_PER_SECOND = 1 / T_STEP  # 每秒的步数
 # SYSTEM PARAMETERS:
 
 # ENERGY:
-# BATTERY_MAX = 60 * 3600  # J (60Wh)
-BATTERY_MAX = 30 * 3600  # J (60Wh)
+BATTERY_MAX = 60 * 3600 #(60Wh)
+# BATTERY_MAX = 30 * 3600  # J (60Wh)
 B_MAX = 100
 
 # ENERGY CONSUMPTION (all in J/s):
 COMPUTE_ENERGY_COST = -60      # GPU inferencing power
-TRANSMIT_ISL_ENERGY_COST = -50      # ISL power (30 W)
+TRANSMIT_ISL_ENERGY_COST = -30      # ISL power (30 W)
 TRANSMIT_SGL_ENERGY_COST = -250      # SGL power (200 W)
 STATIC_ENERGY_COST = -20        # 静态功耗
 
@@ -40,7 +40,7 @@ STATIC_ENERGY_COST = -20        # 静态功耗
 # ENERGY_HARVEST_AMOUNT = 120     # solar charging power (120 W)
 
 # TASK PARAMETERS:
-MAX_NUM_TASKS = 40
+MAX_NUM_TASKS = 100
 MAX_TRANS_RATE = 1_000_000_000
 MAX_COMP_RATE = 1 # 1 unit per second
 

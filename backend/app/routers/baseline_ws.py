@@ -2,6 +2,7 @@ import time
 import os
 from typing import Dict, List
 from app.env.baselines.L2D2.L2D2Env import L2D2Env
+from app.env.baselines.PHOENIX.PHOENIXEnv import PhoenixEnv
 from routers.prefix import SIMULATION_PREFIX
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import asyncio
@@ -10,7 +11,7 @@ from app.env.env import LEOEnv
 from app.models.api_dict.pj import ProjectDict
 from app.config import LOG_OUTPUT
 
-router = APIRouter(prefix=SIMULATION_PREFIX, tags=["l2d2-run"])
+router = APIRouter(prefix=SIMULATION_PREFIX, tags=["baseline-run"])
 
 
 def env_to_payload(env: LEOEnv, info: dict, energy_data: Dict[str, List[float]], latency_data: Dict[str, List[float]]):
@@ -40,16 +41,19 @@ def env_to_payload(env: LEOEnv, info: dict, energy_data: Dict[str, List[float]],
     return payload, energy_data, latency_data
 
 
-@router.websocket("/ws/l2d2")
+@router.websocket("/ws/baseline")
 async def ws_l2d2_run(ws: WebSocket):
     await ws.accept()
-    print("[L2D2-WS] client connected")
+    print("[BASELINE-WS] client connected")
     
     energy_data: Dict[str, List[float]] = {}
     latency_data: Dict[str, List[float]] = {}
 
     # Build env from client init payload
-    env: L2D2Env = None
+    # env: L2D2Env = None
+    # BASELINE = "PHOENIX"  # or "L2D2"
+    BASELINE = "L2D2"  # or "L2D2"
+    env = None
     try:
         init_msg = await ws.receive_text()
         data = json.loads(init_msg)
@@ -58,7 +62,18 @@ async def ws_l2d2_run(ws: WebSocket):
             await ws.close()
             return
         proj = ProjectDict.model_validate(data["payload"])
-        env = L2D2Env(proj)
+        
+        match BASELINE:
+            case "L2D2":
+                env = L2D2Env(proj)
+            case "PHOENIX":
+                env = PhoenixEnv(proj)
+            case _:
+                await ws.send_text(json.dumps({"error": f"unknown baseline: {BASELINE}"}))
+                await ws.close()
+                return
+        # env = L2D2Env(proj)
+        # env = PhoenixEnv(proj)
         env.setup(proj)
         env.reset()
     except Exception as e:
@@ -107,7 +122,7 @@ async def ws_l2d2_run(ws: WebSocket):
                     # Save metrics to JSON files under LOG_OUTPUT
                     try:
                         os.makedirs(LOG_OUTPUT, exist_ok=True)
-                        base = f"l2d2_{env.t_start.strftime('%Y%m%dT%H%M%SZ')}"
+                        base = f"{BASELINE.upper()}_{env.t_start.strftime('%Y%m%dT%H%M%SZ')}"
                         energy_path = os.path.join(LOG_OUTPUT, f"{base}_energy.json")
                         latency_path = os.path.join(LOG_OUTPUT, f"{base}_latency.json")
                         with open(energy_path, "w") as f:
@@ -123,7 +138,7 @@ async def ws_l2d2_run(ws: WebSocket):
             await asyncio.sleep(sleep_time)
 
     except WebSocketDisconnect:
-        print("[L2D2-WS] client disconnected")
+        print(f"[{BASELINE}] client disconnected")
     except Exception as e:
         await ws.send_text(json.dumps({"error": f"run failed: {e}"}))
         import traceback

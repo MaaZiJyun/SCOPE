@@ -27,3 +27,6 @@ class Task(BaseModel):
     data_sent : int = 0 # to record transmission progress
     data_percent: float = 0.0
     is_done: bool = False
+    
+    # ddl temp.
+    ddl: int = 0

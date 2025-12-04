@@ -25,6 +25,8 @@ class SatelliteSnapshot(BaseModel):
 
     # energy
     batteryPercent: float
+    costPercent: float
+    gainPercent: float
 
     # indicators
     onROI: bool
@@ -32,6 +34,7 @@ class SatelliteSnapshot(BaseModel):
     onProc: bool
     onISL: bool
     onSun: bool
+    
 
 class SatelliteEntity():
     def __init__(
@@ -76,6 +79,8 @@ class SatelliteEntity():
         # === 电池与能源 ===
         self.battery: float = BATTERY_MAX     # 当前电池电量
         self.battery_ratio: float = 1.0    # 当前电池电量百分比
+        self.gainPercent: float = 0.0
+        self.costPercent: float = 0.0
 
         # === 通信模块 ===
         self.connections: dict[str, LinkSnapshot] = {}  # 当前连接的链路信息
@@ -84,9 +89,11 @@ class SatelliteEntity():
         self._at(period_counter, slot_counter)
 
     def energy_step(self, dt: float) -> None:
-        self.charge(dt)
-        self.discharge_static(dt)
-        self.discharge_dynamic(dt)
+        g = self.charge(dt)
+        c1 = self.discharge_static(dt)
+        c2 = self.discharge_dynamic(dt)
+        self.gainPercent = g * 100
+        self.costPercent = (c1 + c2) * 100
         self.clear_indicators()
         
     def clear_indicators(self) -> None:
@@ -108,12 +115,14 @@ class SatelliteEntity():
         # 44.25Wh左右
         self.battery = min(self.battery + gain, BATTERY_MAX)
         self.battery_ratio = (self.battery / BATTERY_MAX)
+        return gain / BATTERY_MAX
         
     def discharge_static(self, dt: float) -> None:
         cost = dt * STATIC_ENERGY_COST
         self.battery = max(self.battery + cost, 0)
         self.battery_ratio = (self.battery / BATTERY_MAX)
         # print(f"dt {dt} Static discharge for satellite {self.id}: cost={cost:.2f}, battery={self.battery:.2f}, percent={self.battery_percent:.2f}%")
+        return cost / BATTERY_MAX
 
     def discharge_dynamic(self, dt: float) -> None:
         cost = dt * (
@@ -123,6 +132,7 @@ class SatelliteEntity():
             )
         self.battery = max(self.battery + cost, 0)
         self.battery_ratio = (self.battery / BATTERY_MAX)
+        return cost / BATTERY_MAX
 
     def _at(self, period_counter: int, slot_counter: int) -> None:
         # 更新位置
@@ -176,6 +186,8 @@ class SatelliteEntity():
             imgCornersLon= self.img_corners_loc,
             # Energy
             batteryPercent=self.battery_ratio * 100,
+            costPercent=self.costPercent * 100,
+            gainPercent=self.gainPercent * 100,
             # indicators
             onROI=self.is_observing,
             onSGL=self.is_communicating_sgl,
@@ -184,5 +196,31 @@ class SatelliteEntity():
             onSun=self.is_charging,
         )
         
+    def sunlit_ratio(self, start: int = 0, delta: int = 1, step: int = 1) -> float:
+        """
+        计算在给定采样步长下的日照占比（百分比）。
+        """
+        end = start + delta if delta > 0 else None
+        sun_series = self.time_series.get("is_sunlit")
+        # 显式判空与长度/size判断，避免 numpy 的布尔歧义
+        if sun_series is None:
+            return 0.0
+
+        import numpy as np
+        arr = np.asarray(sun_series, dtype=bool)
+        if arr.size == 0:
+            return 0.0
+
+        n = arr.shape[0]
+        s = max(0, start)
+        e = n if end is None else max(0, min(end, n))
+        if step <= 0 or s >= e:
+            return 0.0
+
+        # 采样统计
+        total = ((e - s) + (step - 1)) // step  # 采样点数量
+        sun = arr[s:e:step].sum()
+        return (float(sun) / float(total)) if total > 0 else 0.0
+
     def serialize(self) -> dict:
         return self.snapshot().model_dump()

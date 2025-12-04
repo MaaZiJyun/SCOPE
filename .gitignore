@@ -20,6 +20,7 @@ backend/projects/
 backend/ai_model/
 backend/app/*.pkl
 backend/app/env/baselines
+backend/app/env/PPO
 
 # Node/Frontend
 node_modules/

@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__))))
 from app.routers import cache, project, simulation, rl_ws
-from app.routers import l2d2_ws
+from app.routers import baseline_ws
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -21,5 +21,5 @@ app.include_router(project.router)
 app.include_router(simulation.router)
 app.include_router(cache.router)
 app.include_router(rl_ws.router)
-app.include_router(l2d2_ws.router)
+app.include_router(baseline_ws.router)
 

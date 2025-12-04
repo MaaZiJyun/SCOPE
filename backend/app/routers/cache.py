@@ -2,6 +2,7 @@ import multiprocessing
 import threading
 from app.core.simulation import Simulation
 from app.env.train_and_run import train_model
+from app.env.baselines.auto_testing import AutoTester
 from routers.prefix import CACHE_PREFIX
 from fastapi import APIRouter, HTTPException
 from app.models.api_dict.pj import ProjectDict
@@ -57,8 +58,15 @@ async def train_model_route(input: ProjectDict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"failed to start training process: {e}")
 
-@router.post("/run_model", response_model=ApiResponse[str])
-async def run_model_route(input: ProjectDict):
+@router.post("/auto_testing", response_model=ApiResponse[str])
+async def auto_testing_route(input: ProjectDict):
     # initial_cache_setup(input)
     # train_model(input)
-    return ApiResponse(status="success", data="model run")
+    try:
+        tester = AutoTester(input)
+        tester.run()
+        return ApiResponse(status="success", data="model run")
+    except Exception as e:
+        import traceback
+        print(f"[Update failed: {e}")
+        traceback.print_exc()
